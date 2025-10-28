@@ -126,9 +126,7 @@ class ObjectChange(models.Model):
         # Validate the assigned object type
         if not has_feature(self.changed_object_type, 'change_logging'):
             raise ValidationError(
-                _("Change logging is not supported for this object type ({type}).").format(
-                    type=self.changed_object_type
-                )
+                _("Change logging is not supported for this object type (%(type)s).") % {'type': self.changed_object_type}
             )
 
     def save(self, *args, **kwargs):

@@ -9959,7 +9959,7 @@ msgid "Error deleting widget: "
 msgstr ""
 
 #: netbox/extras/views.py:1473
-msgid "Unable to run script: RQ worker process not running."
+msgid "Unable to run script: Worker process not running."
 msgstr ""
 
 #: netbox/ipam/api/field_serializers.py:17
@@ -13362,7 +13362,7 @@ msgid "Django version"
 msgstr ""
 
 #: netbox/templates/core/system.html:70
-msgid "PostgreSQL version"
+msgid "Database version"
 msgstr ""
 
 #: netbox/templates/core/system.html:74
@@ -13378,7 +13378,7 @@ msgid "Unavailable"
 msgstr ""
 
 #: netbox/templates/core/system.html:88
-msgid "RQ workers"
+msgid "Background workers"
 msgstr ""
 
 #: netbox/templates/core/system.html:91
@@ -14180,14 +14180,14 @@ msgid ""
 msgstr ""
 
 #: netbox/templates/exceptions/programming_error.html:18
-msgid "Unsupported PostgreSQL version"
+msgid "Unsupported database version"
 msgstr ""
 
 #: netbox/templates/exceptions/programming_error.html:19
 msgid ""
-"Ensure that PostgreSQL version 14 or later is in use. You can check this by "
+"Ensure that the database version is compatible with NetBox. You can check this by "
 "connecting to the database using NetBox's credentials and issuing a query "
-"for <code>SELECT VERSION()</code>."
+"for <code>SELECT VERSION()</code> or <code>SELECT sqlite_version()</code>."
 msgstr ""
 
 #: netbox/templates/extras/configcontextprofile.html:30

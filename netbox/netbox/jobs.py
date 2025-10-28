@@ -5,7 +5,9 @@ from datetime import timedelta
 from django.core.exceptions import ImproperlyConfigured
 from django.utils.functional import classproperty
 from django.utils import timezone
-from django_pglocks import advisory_lock
+from django.db import connection
+from utilities.advisory_lock import advisory_lock
+
 from rq.timeouts import JobTimeoutException
 
 from core.choices import JobStatusChoices

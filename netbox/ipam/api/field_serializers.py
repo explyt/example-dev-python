@@ -21,7 +21,7 @@ class IPAddressField(serializers.CharField):
         try:
             return IPNetwork(data)
         except AddrFormatError:
-            raise serializers.ValidationError(_("Invalid IP address format: {data}").format(data))
+            raise serializers.ValidationError(_("Invalid IP address format: %(data)s") % {'data': data})
         except (TypeError, ValueError) as e:
             raise serializers.ValidationError(e)
 
@@ -41,7 +41,7 @@ class IPNetworkField(serializers.CharField):
         try:
             return IPNetwork(data)
         except AddrFormatError:
-            raise serializers.ValidationError(_("Invalid IP prefix format: {data}").format(data))
+            raise serializers.ValidationError(_("Invalid IP prefix format: %(data)s") % {'data': data})
         except (TypeError, ValueError) as e:
             raise serializers.ValidationError(e)
 

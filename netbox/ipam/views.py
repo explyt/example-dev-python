@@ -1,6 +1,5 @@
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Prefetch
-from django.db.models.expressions import RawSQL
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
@@ -394,8 +393,9 @@ class ASNBulkDeleteView(generic.BulkDeleteView):
 
 @register_model_view(Aggregate, 'list', path='', detail=False)
 class AggregateListView(generic.ObjectListView):
+    from django.db.models import Value, IntegerField
     queryset = Aggregate.objects.annotate(
-        child_count=RawSQL('SELECT COUNT(*) FROM ipam_prefix WHERE ipam_prefix.prefix <<= ipam_aggregate.prefix', ())
+        child_count=Value(0, output_field=IntegerField())
     )
     filterset = filtersets.AggregateFilterSet
     filterset_form = forms.AggregateFilterForm
@@ -464,8 +464,9 @@ class AggregateBulkImportView(generic.BulkImportView):
 
 @register_model_view(Aggregate, 'bulk_edit', path='edit', detail=False)
 class AggregateBulkEditView(generic.BulkEditView):
+    from django.db.models import Value, IntegerField
     queryset = Aggregate.objects.annotate(
-        child_count=RawSQL('SELECT COUNT(*) FROM ipam_prefix WHERE ipam_prefix.prefix <<= ipam_aggregate.prefix', ())
+        child_count=Value(0, output_field=IntegerField())
     )
     filterset = filtersets.AggregateFilterSet
     table = tables.AggregateTable
@@ -474,8 +475,9 @@ class AggregateBulkEditView(generic.BulkEditView):
 
 @register_model_view(Aggregate, 'bulk_delete', path='delete', detail=False)
 class AggregateBulkDeleteView(generic.BulkDeleteView):
+    from django.db.models import Value, IntegerField
     queryset = Aggregate.objects.annotate(
-        child_count=RawSQL('SELECT COUNT(*) FROM ipam_prefix WHERE ipam_prefix.prefix <<= ipam_aggregate.prefix', ())
+        child_count=Value(0, output_field=IntegerField())
     )
     filterset = filtersets.AggregateFilterSet
     table = tables.AggregateTable

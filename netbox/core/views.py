@@ -1,4 +1,5 @@
 import json
+import os
 import platform
 
 from django import __version__ as django_version
@@ -6,13 +7,13 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.core.cache import cache
-from django.db import connection, ProgrammingError
+from django.db import connection
 from django.http import HttpResponse, HttpResponseForbidden, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import View
-from django_rq.queues import get_connection, get_queue_by_index, get_redis_connection
+from django_rq.queues import get_queue_by_index, get_redis_connection
 from django_rq.settings import QUEUES_MAP, QUEUES_LIST
 from django_rq.utils import get_statistics
 from rq.exceptions import NoSuchJobError
@@ -89,7 +90,7 @@ class DataSourceSyncView(GetReturnURLMixin, BaseObjectView):
         job = SyncDataSourceJob.enqueue(instance=datasource, user=request.user)
         messages.success(
             request,
-            _("Queued job #{id} to sync {datasource}").format(id=job.pk, datasource=datasource)
+            _("Queued job #%(id)s to sync %(datasource)s") % {'id': job.pk, 'datasource': datasource}
         )
         return redirect(self.get_return_url(request, datasource))
 
@@ -360,7 +361,7 @@ class ConfigRevisionRestoreView(ContentTypePermissionRequiredMixin, View):
 
         candidate_config = get_object_or_404(ConfigRevision, pk=pk)
         candidate_config.activate()
-        messages.success(request, _("Restored configuration revision #{id}").format(id=pk))
+        messages.success(request, _("Restored configuration revision #%(id)s") % {'id': pk})
 
         return redirect(candidate_config.get_absolute_url())
 
@@ -424,7 +425,7 @@ class BackgroundTaskView(BaseRQView):
         try:
             job = RQ_Job.fetch(job_id, connection=get_redis_connection(config['connection_config']),)
         except NoSuchJobError:
-            raise Http404(_("Job {job_id} not found").format(job_id=job_id))
+            raise Http404(_("Job %(job_id)s not found") % {'job_id': job_id})
 
         queue_index = QUEUES_MAP[job.origin]
         queue = get_queue_by_index(queue_index)
@@ -463,9 +464,9 @@ class BackgroundTaskDeleteView(BaseRQView):
 
         if form.is_valid():
             delete_rq_job(job_id)
-            messages.success(request, _('Job {id} has been deleted.').format(id=job_id))
+            messages.success(request, _('Job %(id)s has been deleted.') % {'id': job_id})
         else:
-            messages.error(request, _('Error deleting job {id}: {error}').format(id=job_id, error=form.errors[0]))
+            messages.error(request, _('Error deleting job %(id)s: %(error)s') % {'id': job_id, 'error': form.errors[0]})
 
         return redirect(reverse('core:background_queue_list'))
 
@@ -474,7 +475,7 @@ class BackgroundTaskRequeueView(BaseRQView):
 
     def get(self, request, job_id):
         requeue_rq_job(job_id)
-        messages.success(request, _('Job {id} has been re-enqueued.').format(id=job_id))
+        messages.success(request, _('Job %(id)s has been re-enqueued.') % {'id': job_id})
         return redirect(reverse('core:background_task', args=[job_id]))
 
 
@@ -483,7 +484,7 @@ class BackgroundTaskEnqueueView(BaseRQView):
     def get(self, request, job_id):
         # all the RQ queues should use the same connection
         enqueue_rq_job(job_id)
-        messages.success(request, _('Job {id} has been enqueued.').format(id=job_id))
+        messages.success(request, _('Job %(id)s has been enqueued.') % {'id': job_id})
         return redirect(reverse('core:background_task', args=[job_id]))
 
 
@@ -492,9 +493,9 @@ class BackgroundTaskStopView(BaseRQView):
     def get(self, request, job_id):
         stopped_jobs = stop_rq_job(job_id)
         if len(stopped_jobs) == 1:
-            messages.success(request, _('Job {id} has been stopped.').format(id=job_id))
+            messages.success(request, _('Job %(id)s has been stopped.') % {'id': job_id})
         else:
-            messages.error(request, _('Failed to stop job {id}').format(id=job_id))
+            messages.error(request, _('Failed to stop job %(id)s') % {'id': job_id})
 
         return redirect(reverse('core:background_task', args=[job_id]))
 
@@ -559,27 +560,27 @@ class SystemView(UserPassesTestMixin, View):
 
     def get(self, request):
 
-        # System status
-        psql_version = db_name = db_size = None
+        db_engine = 'sqlite'
+        db_version = None
+        db_name = settings.DATABASES.get('default', {}).get('NAME')
+        db_size = None
         try:
             with connection.cursor() as cursor:
-                cursor.execute("SELECT version()")
-                psql_version = cursor.fetchone()[0]
-                psql_version = psql_version.split('(')[0].strip()
-                cursor.execute("SELECT current_database()")
-                db_name = cursor.fetchone()[0]
-                cursor.execute(f"SELECT pg_size_pretty(pg_database_size('{db_name}'))")
-                db_size = cursor.fetchone()[0]
-        except (ProgrammingError, IndexError):
+                cursor.execute("select sqlite_version()")
+                db_version = cursor.fetchone()[0]
+                if db_name:
+                    db_size = os.path.getsize(db_name)
+        except Exception:
             pass
         stats = {
             'netbox_release': settings.RELEASE,
             'django_version': django_version,
             'python_version': platform.python_version(),
-            'postgresql_version': psql_version,
+            'database_engine': db_engine,
+            'database_version': db_version,
             'database_name': db_name,
             'database_size': db_size,
-            'rq_worker_count': Worker.count(get_connection('default')),
+            'rq_worker_count': 0,
         }
 
         # Django apps
@@ -684,7 +685,7 @@ class PluginView(BasePluginView):
 
         plugins = self.get_cached_plugins(request)
         if name not in plugins:
-            raise Http404(_("Plugin {name} not found").format(name=name))
+            raise Http404(_("Plugin %(name)s not found") % {'name': name})
         plugin = plugins[name]
 
         table = PluginVersionTable(plugin.release_recent_history, user=request.user)

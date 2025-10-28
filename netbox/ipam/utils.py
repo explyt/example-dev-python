@@ -29,7 +29,7 @@ class AvailableIPSpace:
         if self.size == 1:
             return _('1 IP available')
         if self.size <= 65536:
-            return _('{count} IPs available').format(count=self.size)
+            return _('%(count)s IPs available') % {'count': self.size}
         return _('Many IPs available')
 
 

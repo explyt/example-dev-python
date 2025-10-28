@@ -30,10 +30,10 @@ def to_grams(weight, unit) -> int:
     if unit == WeightUnitChoices.UNIT_OUNCE:
         return int(weight * Decimal(28.3495))
     raise ValueError(
-        _("Unknown unit {unit}. Must be one of the following: {valid_units}").format(
-            unit=unit,
-            valid_units=', '.join(WeightUnitChoices.values())
-        )
+        _("Unknown unit %(unit)s. Must be one of the following: %(valid_units)s") % {
+            'unit': unit,
+            'valid_units': ', '.join(WeightUnitChoices.values())
+        }
     )
 
 
@@ -61,8 +61,8 @@ def to_meters(length, unit) -> Decimal:
     if unit == CableLengthUnitChoices.UNIT_INCH:
         return round(length * Decimal(0.0254), 4)
     raise ValueError(
-        _("Unknown unit {unit}. Must be one of the following: {valid_units}").format(
-            unit=unit,
-            valid_units=', '.join(CableLengthUnitChoices.values())
-        )
+        _("Unknown unit %(unit)s. Must be one of the following: %(valid_units)s") % {
+            'unit': unit,
+            'valid_units': ', '.join(CableLengthUnitChoices.values())
+        }
     )

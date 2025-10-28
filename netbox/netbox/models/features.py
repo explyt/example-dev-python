@@ -297,9 +297,9 @@ class CustomFieldsMixin(models.Model):
             try:
                 custom_fields[field_name].validate(value)
             except ValidationError as e:
-                raise ValidationError(_("Invalid value for custom field '{name}': {error}").format(
-                    name=field_name, error=e.message
-                ))
+                raise ValidationError(_("Invalid value for custom field '%(name)s': %(error)s") % {
+                    'name': field_name, 'error': e.message
+                })
 
             # Validate uniqueness if enforced
             if custom_fields[field_name].unique and value not in CUSTOMFIELD_EMPTY_VALUES:
@@ -619,9 +619,7 @@ class SyncedDataMixin(models.Model):
         Inheriting models must override this method with specific logic to copy data from the assigned DataFile
         to the local instance. This method should *NOT* call save() on the instance.
         """
-        raise NotImplementedError(_("{class_name} must implement a sync_data() method.").format(
-            class_name=self.__class__
-        ))
+        raise NotImplementedError(_("%(class_name)s must implement a sync_data() method.") % {'class_name': self.__class__})
 
 
 #

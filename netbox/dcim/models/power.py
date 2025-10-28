@@ -37,7 +37,7 @@ class PowerPanel(ContactsMixin, ImageAttachmentsMixin, PrimaryModel):
     name = models.CharField(
         verbose_name=_('name'),
         max_length=100,
-        db_collation="natural_sort"
+        # db_collation omitted under SQLite: natural_sort
     )
 
     prerequisite_models = (
@@ -64,8 +64,7 @@ class PowerPanel(ContactsMixin, ImageAttachmentsMixin, PrimaryModel):
         # Location must belong to assigned Site
         if self.location and self.location.site != self.site:
             raise ValidationError(
-                _("Location {location} ({location_site}) is in a different site than {site}").format(
-                    location=self.location, location_site=self.location.site, site=self.site)
+                _("Location %(location)s (%(location_site)s) is in a different site than %(site)s") % {'location': self.location, 'location_site': self.location.site, 'site': self.site}
             )
 
 
@@ -88,7 +87,7 @@ class PowerFeed(PrimaryModel, PathEndpoint, CabledObjectModel):
     name = models.CharField(
         verbose_name=_('name'),
         max_length=100,
-        db_collation="natural_sort"
+        # db_collation omitted under SQLite: natural_sort
     )
     status = models.CharField(
         verbose_name=_('status'),

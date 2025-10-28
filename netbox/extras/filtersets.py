@@ -127,7 +127,15 @@ class EventRuleFilterSet(NetBoxModelFilterSet):
         )
 
     def filter_event_type(self, queryset, name, value):
-        return queryset.filter(event_types__overlap=value)
+        if not value:
+            return queryset
+        clauses = []
+        params = []
+        for v in value:
+            clauses.append("ARRAY_CONTAINS(extras_eventrule.event_types, ?)=1")
+            params.append(v)
+        where = " OR ".join(clauses) if clauses else "0"
+        return queryset.extra(where=[where], params=params)
 
 
 class CustomFieldFilterSet(ChangeLoggedModelFilterSet):
@@ -203,8 +211,15 @@ class CustomFieldChoiceSetFilterSet(ChangeLoggedModelFilterSet):
         )
 
     def filter_by_choice(self, queryset, name, value):
-        # TODO: Support case-insensitive matching
-        return queryset.filter(extra_choices__overlap=value)
+        if not value:
+            return queryset
+        clauses = []
+        params = []
+        for v in value:
+            clauses.append("CHOICES_CONTAINS_VALUE(extras_customfieldchoiceset.extra_choices, ?)=1")
+            params.append(v)
+        where = " OR ".join(clauses) if clauses else "0"
+        return queryset.extra(where=[where], params=params)
 
 
 class CustomLinkFilterSet(ChangeLoggedModelFilterSet):

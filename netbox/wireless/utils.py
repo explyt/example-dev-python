@@ -13,7 +13,7 @@ def get_channel_attr(channel, attr):
     Return the specified attribute of a given WirelessChannelChoices value.
     """
     if channel not in WirelessChannelChoices.values():
-        raise ValueError(_("Invalid channel value: {channel}").format(channel=channel))
+        raise ValueError(_("Invalid channel value: %(channel)s") % {'channel': channel})
 
     channel_values = channel.split('-')
     attrs = {
@@ -23,6 +23,6 @@ def get_channel_attr(channel, attr):
         'width': Decimal(channel_values[3]),
     }
     if attr not in attrs:
-        raise ValueError(_("Invalid channel attribute: {name}").format(name=attr))
+        raise ValueError(_("Invalid channel attribute: %(name)s") % {'name': attr})
 
     return attrs[attr]

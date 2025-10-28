@@ -97,7 +97,8 @@ class VMInterfaceSerializer(NetBoxModelSerializer):
     count_ipaddresses = serializers.IntegerField(read_only=True)
     count_fhrp_groups = serializers.IntegerField(read_only=True)
     # Maintains backward compatibility with NetBox <v4.2
-    mac_address = serializers.CharField(allow_null=True, read_only=True)
+    # Allow writing mac_address for convenience (will create MACAddress object)
+    mac_address = serializers.CharField(allow_null=True, allow_blank=True, required=False)
     primary_mac_address = MACAddressSerializer(nested=True, required=False, allow_null=True)
     mac_addresses = MACAddressSerializer(many=True, nested=True, read_only=True, allow_null=True)
 
@@ -140,6 +141,89 @@ class VMInterfaceSerializer(NetBoxModelSerializer):
                     })
 
         return super().validate(data)
+    
+    def to_internal_value(self, data):
+        # Store mac_address separately to avoid passing it to model
+        self._mac_address_value = data.pop('mac_address', None) if isinstance(data, dict) else None
+        return super().to_internal_value(data)
+    
+    def create(self, validated_data):
+        # Handle mac_address field for backward compatibility
+        validated_data.pop('mac_address', None)
+        mac_address_str = getattr(self, '_mac_address_value', None)
+        instance = super().create(validated_data)
+        
+        # Create MACAddress object if mac_address was provided
+        if mac_address_str:
+            from dcim.models import MACAddress
+            from django.contrib.contenttypes.models import ContentType as CT
+            mac_obj, created = MACAddress.objects.get_or_create(
+                mac_address=mac_address_str.upper(),
+                defaults={
+                    'assigned_object_type': CT.objects.get_for_model(instance),
+                    'assigned_object_id': instance.pk
+                }
+            )
+            if not created and not mac_obj.assigned_object:
+                # MAC exists but not assigned, assign it
+                mac_obj.assigned_object = instance
+                mac_obj.save()
+            
+            # Set as primary MAC
+            instance.primary_mac_address = mac_obj
+            instance.save()
+        
+        return instance
+    
+    def update(self, instance, validated_data):
+        # Handle mac_address field for backward compatibility
+        validated_data.pop('mac_address', None)
+        mac_address_str = getattr(self, '_mac_address_value', None)
+        instance = super().update(instance, validated_data)
+        
+        # Update MACAddress object if mac_address was provided
+        if mac_address_str is not None:
+            from dcim.models import MACAddress
+            from django.contrib.contenttypes.models import ContentType as CT
+            
+            if mac_address_str == '':
+                # Remove MAC address
+                if instance.primary_mac_address:
+                    instance.primary_mac_address.delete()
+                    instance.primary_mac_address = None
+                    instance.save()
+            else:
+                # Create or update MAC address
+                mac_obj, created = MACAddress.objects.get_or_create(
+                    mac_address=mac_address_str.upper(),
+                    defaults={
+                        'assigned_object_type': CT.objects.get_for_model(instance),
+                        'assigned_object_id': instance.pk
+                    }
+                )
+                if not created and not mac_obj.assigned_object:
+                    # MAC exists but not assigned, assign it
+                    mac_obj.assigned_object = instance
+                    mac_obj.save()
+                
+                # Set as primary MAC
+                if instance.primary_mac_address != mac_obj:
+                    instance.primary_mac_address = mac_obj
+                    instance.save()
+        
+        return instance
+    
+    def to_representation(self, instance):
+        """Return mac_address field for backward compatibility."""
+        ret = super().to_representation(instance)
+        # Return primary MAC address as string for backward compatibility
+        # Only add mac_address if it's in the fields (i.e., not in brief mode)
+        if 'mac_address' in ret:
+            if instance.primary_mac_address:
+                ret['mac_address'] = str(instance.primary_mac_address.mac_address)
+            else:
+                ret['mac_address'] = None
+        return ret
 
 
 #

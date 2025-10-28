@@ -316,10 +316,10 @@ class ClusterAddDevicesView(generic.ObjectEditView):
                     device.cluster = cluster
                     device.save()
 
-            messages.success(request, _("Added {count} devices to cluster {cluster}").format(
-                count=len(device_pks),
-                cluster=cluster
-            ))
+            messages.success(request, _("Added %(count)s devices to cluster %(cluster)s") % {
+                'count': len(device_pks),
+                'cluster': cluster
+            })
             return redirect(cluster.get_absolute_url())
 
         return render(request, self.template_name, {
@@ -545,7 +545,8 @@ class VMInterfaceBulkRenameView(generic.BulkRenameView):
 @register_model_view(VMInterface, 'bulk_delete', path='delete', detail=False)
 class VMInterfaceBulkDeleteView(generic.BulkDeleteView):
     # Ensure child interfaces are deleted prior to their parents
-    queryset = VMInterface.objects.order_by('virtual_machine', 'parent', CollateAsChar('_name'))
+    # SQLite note: NULLs sort first in ASC, so order by '-parent' to place children (non-NULL) before parents (NULL)
+    queryset = VMInterface.objects.order_by('virtual_machine', '-parent', CollateAsChar('_name'))
     filterset = filtersets.VMInterfaceFilterSet
     table = tables.VMInterfaceTable
 

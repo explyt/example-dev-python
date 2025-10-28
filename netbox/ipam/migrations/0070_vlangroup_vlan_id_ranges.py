@@ -1,20 +1,29 @@
-import django.contrib.postgres.fields
-import django.contrib.postgres.fields.ranges
 from django.db import migrations, models
-from django.db.backends.postgresql.psycopg_any import NumericRange
-
+# Store vid_ranges as JSON
 import ipam.models.vlans
 
 
 def set_vid_ranges(apps, schema_editor):
+    # Ensure ContentType is accessed via apps in migration runtime to avoid import-time ORM access
+    # Use apps.get_model('contenttypes', 'ContentType') inside this function if ContentType is required
+    VLANGroup = apps.get_model('ipam', 'VLANGroup')
+    db_alias = schema_editor.connection.alias
+
+    for group in VLANGroup.objects.using(db_alias).all():
+        # Store as JSON list
+        group.vid_ranges = [[group.min_vid, group.max_vid]]
+        group._total_vlan_ids = group.max_vid - group.min_vid + 1
+        group.save()
     """
-    Convert the min_vid & max_vid fields to a range in the new vid_ranges ArrayField.
+    Convert the min_vid & max_vid fields to a range in the new vid_ranges field.
+    Store as a simple list [min, max].
     """
     VLANGroup = apps.get_model('ipam', 'VLANGroup')
     db_alias = schema_editor.connection.alias
 
     for group in VLANGroup.objects.using(db_alias).all():
-        group.vid_ranges = [NumericRange(group.min_vid, group.max_vid, bounds='[]')]
+        # Store as JSON list
+        group.vid_ranges = [[group.min_vid, group.max_vid]]
         group._total_vlan_ids = group.max_vid - group.min_vid + 1
         group.save()
 
@@ -28,11 +37,8 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='vlangroup',
             name='vid_ranges',
-            field=django.contrib.postgres.fields.ArrayField(
-                base_field=django.contrib.postgres.fields.ranges.IntegerRangeField(),
-                default=ipam.models.vlans.default_vid_ranges,
-                size=None,
-            ),
+            # Use JSONField for range storage
+            field=models.JSONField(default=list, serialize=False),
         ),
         migrations.AddField(
             model_name='vlangroup',

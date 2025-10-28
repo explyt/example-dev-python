@@ -255,10 +255,7 @@ class ObjectSyncDataView(LoginRequiredMixin, View):
             return redirect(obj.get_absolute_url())
 
         obj.sync(save=True)
-        messages.success(request, _("Synchronized data for {object_type} {object}.").format(
-            object_type=model._meta.verbose_name,
-            object=obj
-        ))
+        messages.success(request, _("Synchronized data for %(object_type)s %(object)s.") % {'object_type': model._meta.verbose_name, 'object': obj})
 
         return redirect(obj.get_absolute_url())
 
@@ -280,10 +277,10 @@ class BulkSyncDataView(GetReturnURLMixin, BaseMultiObjectView):
             for obj in selected_objects:
                 obj.sync(save=True)
 
-            messages.success(request, _("Synced {count} {object_type}").format(
-                count=len(selected_objects),
-                object_type=self.queryset.model._meta.verbose_name_plural
-            ))
+            messages.success(request, _("Synced %(count)s %(object_type)s") % {
+                'count': len(selected_objects),
+                'object_type': self.queryset.model._meta.verbose_name_plural
+            })
 
         return redirect(self.get_return_url(request))
 

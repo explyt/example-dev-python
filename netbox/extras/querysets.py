@@ -1,6 +1,5 @@
-from django.contrib.postgres.aggregates import JSONBAgg
-from django.db.models import OuterRef, Subquery, Q
-
+from django.db import models
+from django.db.models import OuterRef, Subquery, Q, Value
 from extras.models.tags import TaggedItem
 from utilities.query_functions import EmptyGroupByJSONBAgg
 from utilities.querysets import RestrictedQuerySet
@@ -47,26 +46,29 @@ class ConfigContextQuerySet(RestrictedQuerySet):
         device_roles = obj.role.get_ancestors(include_self=True) if obj.role else []
 
         queryset = self.filter(
-            Q(regions__in=regions) | Q(regions=None),
-            Q(site_groups__in=sitegroups) | Q(site_groups=None),
-            Q(sites=obj.site) | Q(sites=None),
-            Q(locations__in=locations) | Q(locations=None),
-            Q(device_types=device_type) | Q(device_types=None),
-            Q(roles__in=device_roles) | Q(roles=None),
-            Q(platforms=obj.platform) | Q(platforms=None),
-            Q(cluster_types=cluster_type) | Q(cluster_types=None),
-            Q(cluster_groups=cluster_group) | Q(cluster_groups=None),
-            Q(clusters=cluster) | Q(clusters=None),
-            Q(tenant_groups=tenant_group) | Q(tenant_groups=None),
-            Q(tenants=obj.tenant) | Q(tenants=None),
-            Q(tags__slug__in=obj.tags.slugs()) | Q(tags=None),
+            Q(regions__in=regions) | Q(regions__isnull=True),
+            Q(site_groups__in=sitegroups) | Q(site_groups__isnull=True),
+            Q(sites=obj.site) | Q(sites__isnull=True),
+            Q(locations__in=locations) | Q(locations__isnull=True),
+            Q(device_types=device_type) | Q(device_types__isnull=True),
+            Q(roles__in=device_roles) | Q(roles__isnull=True),
+            Q(platforms=obj.platform) | Q(platforms__isnull=True),
+            Q(cluster_types=cluster_type) | Q(cluster_types__isnull=True),
+            Q(cluster_groups=cluster_group) | Q(cluster_groups__isnull=True),
+            Q(clusters=cluster) | Q(clusters__isnull=True),
+            Q(tenant_groups=tenant_group) | Q(tenant_groups__isnull=True),
+            Q(tenants=obj.tenant) | Q(tenants__isnull=True),
+            Q(tags__slug__in=obj.tags.slugs()) | Q(tags__isnull=True),
             is_active=True,
         ).order_by('weight', 'name').distinct()
 
         if aggregate_data:
-            return queryset.aggregate(
-                config_context_data=JSONBAgg('data', ordering=['weight', 'name'])
+            agg = queryset.aggregate(
+                config_context_data=EmptyGroupByJSONBAgg('weight', 'name', 'data')
             )['config_context_data']
+            if agg is None:
+                return list(queryset.values_list('data', flat=True))
+            return agg
 
         return queryset
 
@@ -82,94 +84,23 @@ class ConfigContextModelQuerySet(RestrictedQuerySet):
     """
     def annotate_config_context_data(self):
         """
-        Attach the subquery annotation to the base queryset
+        Attach the subquery annotation to the base queryset.
+
+        For SQLite compatibility: Returns empty array to force fallback to get_for_object().
+        This is necessary because SQLite's .annotate().values() creates GROUP BY which
+        prevents proper aggregation of all matching config contexts in a subquery.
+
+        The get_config_context() method will detect the empty array and fall back to
+        direct query via get_for_object(), ensuring correct data at the cost of N+1 queries.
+
+        Note: .distinct() is applied to the main queryset to eliminate duplicates from many-to-many
+        relationships (e.g., tags).
         """
-        from extras.models import ConfigContext
+        # Return empty array to trigger fallback in get_config_context()
+        # This ensures correctness for SQLite at the cost of performance
         return self.annotate(
-            config_context_data=Subquery(
-                ConfigContext.objects.filter(
-                    self._get_config_context_filters()
-                ).annotate(
-                    _data=EmptyGroupByJSONBAgg('data', order_by=['weight', 'name'])
-                ).values("_data").order_by()
-            )
-        )
-
-    def _get_config_context_filters(self):
-        # Construct the set of Q objects for the specific object types
-        tag_query_filters = {
-            "object_id": OuterRef(OuterRef('pk')),
-            "content_type__app_label": self.model._meta.app_label,
-            "content_type__model": self.model._meta.model_name
-        }
-        base_query = Q(
-            Q(platforms=OuterRef('platform')) | Q(platforms=None),
-            Q(cluster_types=OuterRef('cluster__type')) | Q(cluster_types=None),
-            Q(cluster_groups=OuterRef('cluster__group')) | Q(cluster_groups=None),
-            Q(clusters=OuterRef('cluster')) | Q(clusters=None),
-            Q(tenant_groups=OuterRef('tenant__group')) | Q(tenant_groups=None),
-            Q(tenants=OuterRef('tenant')) | Q(tenants=None),
-            Q(sites=OuterRef('site')) | Q(sites=None),
-            Q(
-                tags__pk__in=Subquery(
-                    TaggedItem.objects.filter(
-                        **tag_query_filters
-                    ).values_list(
-                        'tag_id',
-                        flat=True
-                    ).distinct()
-                )
-            ) | Q(tags=None),
-            is_active=True,
-        )
-
-        # Apply Location & DeviceType filters only for VirtualMachines
-        if self.model._meta.model_name == 'device':
-            base_query.add(
-                (Q(
-                    locations__tree_id=OuterRef('location__tree_id'),
-                    locations__level__lte=OuterRef('location__level'),
-                    locations__lft__lte=OuterRef('location__lft'),
-                    locations__rght__gte=OuterRef('location__rght'),
-                ) | Q(locations=None)),
-                Q.AND
-            )
-            base_query.add((Q(device_types=OuterRef('device_type')) | Q(device_types=None)), Q.AND)
-        elif self.model._meta.model_name == 'virtualmachine':
-            base_query.add(Q(locations=None), Q.AND)
-            base_query.add(Q(device_types=None), Q.AND)
-
-        # MPTT-based filters
-        base_query.add(
-            (Q(
-                regions__tree_id=OuterRef('site__region__tree_id'),
-                regions__level__lte=OuterRef('site__region__level'),
-                regions__lft__lte=OuterRef('site__region__lft'),
-                regions__rght__gte=OuterRef('site__region__rght'),
-            ) | Q(regions=None)),
-            Q.AND
-        )
-        base_query.add(
-            (Q(
-                site_groups__tree_id=OuterRef('site__group__tree_id'),
-                site_groups__level__lte=OuterRef('site__group__level'),
-                site_groups__lft__lte=OuterRef('site__group__lft'),
-                site_groups__rght__gte=OuterRef('site__group__rght'),
-            ) | Q(site_groups=None)),
-            Q.AND
-        )
-        base_query.add(
-            (Q(
-                roles__tree_id=OuterRef('role__tree_id'),
-                roles__level__lte=OuterRef('role__level'),
-                roles__lft__lte=OuterRef('role__lft'),
-                roles__rght__gte=OuterRef('role__rght'),
-            ) | Q(roles=None)),
-            Q.AND
-        )
-
-        return base_query
-
+            config_context_data=Value('[]', output_field=models.JSONField())
+        ).distinct()
 
 class NotificationQuerySet(RestrictedQuerySet):
 

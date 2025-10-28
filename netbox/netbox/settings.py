@@ -6,6 +6,9 @@ import platform
 import sys
 import warnings
 
+# Setup diskcache backend for caching and task queuing
+from utilities import diskcache_backend  # noqa: F401
+
 from django.contrib.messages import constants as messages
 from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.core.validators import URLValidator
@@ -15,10 +18,13 @@ from django.utils.translation import gettext_lazy as _
 from core.exceptions import IncompatiblePluginError
 from netbox.config import PARAMS as CONFIG_PARAMS
 from netbox.constants import RQ_QUEUE_DEFAULT, RQ_QUEUE_HIGH, RQ_QUEUE_LOW
-from netbox.plugins import PluginConfig
+# Avoid importing netbox.plugins at settings import time to prevent early ORM usage
+# from netbox.plugins import PluginConfig
 from netbox.registry import registry
 import storages.utils  # type: ignore
 from utilities.release import load_release_data
+# Ensure SQLite collations registered via signal for tests/dev (no early connection import)
+import utilities.sqlite_collations  # noqa: F401
 from utilities.string import trailing_slash
 
 #
@@ -53,7 +59,7 @@ except ModuleNotFoundError as e:
     raise
 
 # Check for missing/conflicting required configuration parameters
-for parameter in ('ALLOWED_HOSTS', 'SECRET_KEY', 'REDIS'):
+for parameter in ('ALLOWED_HOSTS', 'SECRET_KEY'):
     if not hasattr(configuration, parameter):
         raise ImproperlyConfigured(f"Required parameter {parameter} is missing from configuration.")
 if not hasattr(configuration, 'DATABASE') and not hasattr(configuration, 'DATABASES'):
@@ -145,7 +151,6 @@ PLUGINS_CONFIG = getattr(configuration, 'PLUGINS_CONFIG', {})
 PLUGINS_CATALOG_CONFIG = getattr(configuration, 'PLUGINS_CATALOG_CONFIG', {})
 PROXY_ROUTERS = getattr(configuration, 'PROXY_ROUTERS', ['utilities.proxy.DefaultProxyRouter'])
 QUEUE_MAPPINGS = getattr(configuration, 'QUEUE_MAPPINGS', {})
-REDIS = getattr(configuration, 'REDIS')  # Required
 RELEASE_CHECK_URL = getattr(configuration, 'RELEASE_CHECK_URL', None)
 REMOTE_AUTH_AUTO_CREATE_GROUPS = getattr(configuration, 'REMOTE_AUTH_AUTO_CREATE_GROUPS', False)
 REMOTE_AUTH_AUTO_CREATE_USER = getattr(configuration, 'REMOTE_AUTH_AUTO_CREATE_USER', False)
@@ -239,15 +244,9 @@ for path in PROXY_ROUTERS:
 # Database
 #
 
-# Verify that a default database has been configured
-if 'default' not in DATABASES:
-    raise ImproperlyConfigured("No default database has been configured.")
-
-# Set the database engine
-if 'ENGINE' not in DATABASES['default']:
-    DATABASES['default'].update({
-        'ENGINE': 'django_prometheus.db.backends.postgresql' if METRICS_ENABLED else 'django.db.backends.postgresql'
-    })
+# Use configuration from configuration.py
+# For tests, manage.py will set NETBOX_CONFIGURATION to netbox.configuration_testing
+# which uses SQLite
 
 
 #
@@ -314,69 +313,17 @@ if STORAGE_BACKEND == 'swift.storage.SwiftStorage':
 # TODO: End of deprecated code
 
 #
-# Redis
+# Cache configuration (using diskcache)
 #
-
-# Background task queuing
-if 'tasks' not in REDIS:
-    raise ImproperlyConfigured("REDIS section in configuration.py is missing the 'tasks' subsection.")
-TASKS_REDIS = REDIS['tasks']
-TASKS_REDIS_HOST = TASKS_REDIS.get('HOST', 'localhost')
-TASKS_REDIS_PORT = TASKS_REDIS.get('PORT', 6379)
-TASKS_REDIS_URL = TASKS_REDIS.get('URL')
-TASKS_REDIS_SENTINELS = TASKS_REDIS.get('SENTINELS', [])
-TASKS_REDIS_USING_SENTINEL = all([
-    isinstance(TASKS_REDIS_SENTINELS, (list, tuple)),
-    len(TASKS_REDIS_SENTINELS) > 0
-])
-TASKS_REDIS_SENTINEL_SERVICE = TASKS_REDIS.get('SENTINEL_SERVICE', 'default')
-TASKS_REDIS_SENTINEL_TIMEOUT = TASKS_REDIS.get('SENTINEL_TIMEOUT', 10)
-TASKS_REDIS_USERNAME = TASKS_REDIS.get('USERNAME', '')
-TASKS_REDIS_PASSWORD = TASKS_REDIS.get('PASSWORD', '')
-TASKS_REDIS_DATABASE = TASKS_REDIS.get('DATABASE', 0)
-TASKS_REDIS_SSL = TASKS_REDIS.get('SSL', False)
-TASKS_REDIS_SKIP_TLS_VERIFY = TASKS_REDIS.get('INSECURE_SKIP_TLS_VERIFY', False)
-TASKS_REDIS_CA_CERT_PATH = TASKS_REDIS.get('CA_CERT_PATH', False)
-
-# Caching
-if 'caching' not in REDIS:
-    raise ImproperlyConfigured("REDIS section in configuration.py is missing caching subsection.")
-CACHING_REDIS_HOST = REDIS['caching'].get('HOST', 'localhost')
-CACHING_REDIS_PORT = REDIS['caching'].get('PORT', 6379)
-CACHING_REDIS_DATABASE = REDIS['caching'].get('DATABASE', 0)
-CACHING_REDIS_USERNAME = REDIS['caching'].get('USERNAME', '')
-CACHING_REDIS_USERNAME_HOST = '@'.join(filter(None, [CACHING_REDIS_USERNAME, CACHING_REDIS_HOST]))
-CACHING_REDIS_PASSWORD = REDIS['caching'].get('PASSWORD', '')
-CACHING_REDIS_SENTINELS = REDIS['caching'].get('SENTINELS', [])
-CACHING_REDIS_SENTINEL_SERVICE = REDIS['caching'].get('SENTINEL_SERVICE', 'default')
-CACHING_REDIS_PROTO = 'rediss' if REDIS['caching'].get('SSL', False) else 'redis'
-CACHING_REDIS_SKIP_TLS_VERIFY = REDIS['caching'].get('INSECURE_SKIP_TLS_VERIFY', False)
-CACHING_REDIS_CA_CERT_PATH = REDIS['caching'].get('CA_CERT_PATH', False)
-CACHING_REDIS_URL = REDIS['caching'].get('URL', f'{CACHING_REDIS_PROTO}://{CACHING_REDIS_USERNAME_HOST}:{CACHING_REDIS_PORT}/{CACHING_REDIS_DATABASE}')
-
-# Configure Django's default cache to use Redis
 CACHES = {
     'default': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': CACHING_REDIS_URL,
+        'BACKEND': 'diskcache.DjangoCache',
+        'LOCATION': '/tmp/netbox_cache/django',
         'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-            'PASSWORD': CACHING_REDIS_PASSWORD,
+            'size_limit': 2 ** 30,  # 1 GB
         }
     }
 }
-
-if CACHING_REDIS_SENTINELS:
-    DJANGO_REDIS_CONNECTION_FACTORY = 'django_redis.pool.SentinelConnectionFactory'
-    CACHES['default']['LOCATION'] = f'{CACHING_REDIS_PROTO}://{CACHING_REDIS_SENTINEL_SERVICE}/{CACHING_REDIS_DATABASE}'
-    CACHES['default']['OPTIONS']['CLIENT_CLASS'] = 'django_redis.client.SentinelClient'
-    CACHES['default']['OPTIONS']['SENTINELS'] = CACHING_REDIS_SENTINELS
-if CACHING_REDIS_SKIP_TLS_VERIFY:
-    CACHES['default']['OPTIONS'].setdefault('CONNECTION_POOL_KWARGS', {})
-    CACHES['default']['OPTIONS']['CONNECTION_POOL_KWARGS']['ssl_cert_reqs'] = False
-if CACHING_REDIS_CA_CERT_PATH:
-    CACHES['default']['OPTIONS'].setdefault('CONNECTION_POOL_KWARGS', {})
-    CACHES['default']['OPTIONS']['CONNECTION_POOL_KWARGS']['ssl_ca_certs'] = CACHING_REDIS_CA_CERT_PATH
 
 
 #
@@ -445,11 +392,12 @@ INSTALLED_APPS = [
     'virtualization',
     'vpn',
     'wireless',
-    'django_rq',  # Must come after extras to allow overriding management commands
+    # 'django_rq',  # Disabled: using diskcache_backend instead
     'drf_spectacular',
     'drf_spectacular_sidecar',
 ]
-if not DEBUG and 'collectstatic' not in sys.argv:
+# Disable debug toolbar
+if 'debug_toolbar' in INSTALLED_APPS:
     INSTALLED_APPS.remove('debug_toolbar')
 
 # Middleware
@@ -468,12 +416,6 @@ MIDDLEWARE = [
     'netbox.middleware.CoreMiddleware',
     'netbox.middleware.MaintenanceModeMiddleware',
 ]
-
-if DEBUG:
-    MIDDLEWARE = [
-        "strawberry_django.middlewares.debug_toolbar.DebugToolbarMiddleware",
-        *MIDDLEWARE,
-    ]
 
 if METRICS_ENABLED:
     # If metrics are enabled, add the before & after Prometheus middleware
@@ -662,7 +604,7 @@ for param in dir(configuration):
     if param.startswith('SOCIAL_AUTH_'):
         globals()[param] = getattr(configuration, param)
 
-# Force usage of PostgreSQL's JSONB field for extra data
+# Enable JSON field for extra data
 SOCIAL_AUTH_JSONFIELD_ENABLED = True
 SOCIAL_AUTH_CLEAN_USERNAME_FUNCTION = 'users.utils.clean_username'
 
@@ -745,48 +687,18 @@ SPECTACULAR_SETTINGS = {
 }
 
 #
-# Django RQ (events backend)
+# Events backend (Django RQ) disabled, using diskcache backend instead
 #
-
-if TASKS_REDIS_USING_SENTINEL:
-    RQ_PARAMS = {
-        'SENTINELS': TASKS_REDIS_SENTINELS,
-        'MASTER_NAME': TASKS_REDIS_SENTINEL_SERVICE,
-        'SOCKET_TIMEOUT': None,
-        'CONNECTION_KWARGS': {
-            'socket_connect_timeout': TASKS_REDIS_SENTINEL_TIMEOUT
-        },
-    }
-elif TASKS_REDIS_URL:
-    RQ_PARAMS = {
-        'URL': TASKS_REDIS_URL,
-        'SSL': TASKS_REDIS_SSL,
-        'SSL_CERT_REQS': None if TASKS_REDIS_SKIP_TLS_VERIFY else 'required',
-    }
-else:
-    RQ_PARAMS = {
-        'HOST': TASKS_REDIS_HOST,
-        'PORT': TASKS_REDIS_PORT,
-        'SSL': TASKS_REDIS_SSL,
-        'SSL_CERT_REQS': None if TASKS_REDIS_SKIP_TLS_VERIFY else 'required',
-    }
-RQ_PARAMS.update({
-    'DB': TASKS_REDIS_DATABASE,
-    'USERNAME': TASKS_REDIS_USERNAME,
-    'PASSWORD': TASKS_REDIS_PASSWORD,
-    'DEFAULT_TIMEOUT': RQ_DEFAULT_TIMEOUT,
-})
-if TASKS_REDIS_CA_CERT_PATH:
-    RQ_PARAMS.setdefault('REDIS_CLIENT_KWARGS', {})
-    RQ_PARAMS['REDIS_CLIENT_KWARGS']['ssl_ca_certs'] = TASKS_REDIS_CA_CERT_PATH
-
-# Define named RQ queues
+RQ_PARAMS = {
+    'HOST': 'localhost',
+    'PORT': 0,
+}
 RQ_QUEUES = {
     RQ_QUEUE_HIGH: RQ_PARAMS,
     RQ_QUEUE_DEFAULT: RQ_PARAMS,
     RQ_QUEUE_LOW: RQ_PARAMS,
 }
-# Add any queues defined in QUEUE_MAPPINGS
+# Add any queues defined in QUEUE_MAPPINGS (use same dummy params)
 RQ_QUEUES.update({
     queue: RQ_PARAMS for queue in set(QUEUE_MAPPINGS.values()) if queue not in RQ_QUEUES
 })
@@ -850,8 +762,8 @@ for plugin_name in PLUGINS:
         raise e
 
     try:
-        # Load the PluginConfig
-        plugin_config: PluginConfig = plugin.config
+        # Load the plugin's AppConfig (PluginConfig) without importing the netbox.plugins module here
+        plugin_config = plugin.config
     except AttributeError:
         raise ImproperlyConfigured(
             f"Plugin {plugin_name} does not provide a 'config' variable. This should be defined in the plugin's "
@@ -927,3 +839,13 @@ try:
     _UNSUPPORTED_SETTINGS = True
 except ImportError:
     pass
+
+from django.db.backends.sqlite3.base import DatabaseWrapper
+
+def patched_queries_logged(self):
+    """Disable query logging for SQLite to avoid string formatting errors."""
+    # Always return False for SQLite, even when DEBUG=True
+    return False
+
+# Replace the property
+DatabaseWrapper.queries_logged = property(patched_queries_logged)

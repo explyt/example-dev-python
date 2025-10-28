@@ -59,6 +59,7 @@ class DeviceTypeSerializer(NetBoxModelSerializer):
             'console_server_port_template_count', 'power_port_template_count', 'power_outlet_template_count',
             'interface_template_count', 'front_port_template_count', 'rear_port_template_count',
             'device_bay_template_count', 'module_bay_template_count', 'inventory_item_template_count',
+            'is_parent_device',
         ]
         brief_fields = ('id', 'url', 'display', 'manufacturer', 'model', 'slug', 'description', 'device_count')
 

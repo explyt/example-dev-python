@@ -56,13 +56,13 @@ class Condition:
 
     def __init__(self, attr, value, op=EQ, negate=False):
         if op not in self.OPERATORS:
-            raise ValueError(_("Unknown operator: {op}. Must be one of: {operators}").format(
-                op=op, operators=', '.join(self.OPERATORS)
-            ))
+            raise ValueError(_("Unknown operator: %(op)s. Must be one of: %(operators)s") % {
+                'op': op, 'operators': ', '.join(self.OPERATORS)
+            })
         if type(value) not in self.TYPES:
-            raise ValueError(_("Unsupported value type: {value}").format(value=type(value)))
+            raise ValueError(_("Unsupported value type: %(value)s") % {'value': type(value)})
         if op not in self.TYPES[type(value)]:
-            raise ValueError(_("Invalid type for {op} operation: {value}").format(op=op, value=type(value)))
+            raise ValueError(_("Invalid type for %(op)s operation: %(value)s") % {'op': op, 'value': type(value)})
 
         self.attr = attr
         self.value = value

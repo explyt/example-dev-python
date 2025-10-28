@@ -116,9 +116,7 @@ class CustomValidator:
                     validator(attr)
                 except ValidationError as exc:
                     raise ValidationError(
-                        _("Custom validation failed for {attribute}: {exception}").format(
-                            attribute=attr_path, exception=exc
-                        )
+                        _("Custom validation failed for %(attribute)s: %(exception)s") % {'attribute': attr_path, 'exception': exc}
                     )
 
         # Execute custom validation logic (if any)

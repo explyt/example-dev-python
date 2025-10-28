@@ -1,5 +1,5 @@
 from django import forms
-from django.contrib.postgres.forms import SimpleArrayField
+from utilities.forms.fields.array import SimpleArrayField
 from django.utils.translation import gettext_lazy as _
 
 from ipam.formfields import IPNetworkFormField

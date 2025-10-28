@@ -145,9 +145,7 @@ class DashboardWidget:
         Params:
             request: The current request
         """
-        raise NotImplementedError(_("{class_name} must define a render() method.").format(
-            class_name=self.__class__
-        ))
+        raise NotImplementedError(_("%(class_name)s must define a render() method.") % {'class_name': self.__class__})
 
     @property
     def name(self):

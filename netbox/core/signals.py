@@ -172,7 +172,7 @@ def handle_deleted_object(sender, instance, **kwargs):
         run_validators(instance, validators)
     except ValidationError as e:
         raise AbortRequest(
-            _("Deletion is prevented by a protection rule: {message}").format(message=e)
+            _("Deletion is prevented by a protection rule: %(message)s") % {'message': e}
         )
 
     # Get the current request, or bail if not set

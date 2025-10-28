@@ -2,10 +2,11 @@ import inspect
 from collections import defaultdict
 
 from django.contrib.contenttypes.models import ContentType
-from django.contrib.postgres.fields import ArrayField
-from django.contrib.postgres.indexes import GinIndex
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import connection, models
+# SQLite-compatible field types
+ArrayField = models.JSONField
+GinIndex = models.Index
 from django.db.models import Q
 from django.utils.translation import gettext as _
 
@@ -177,10 +178,8 @@ class ObjectType(ContentType):
     public = models.BooleanField(
         default=False,
     )
-    features = ArrayField(
-        base_field=models.CharField(max_length=50),
-        default=list,
-    )
+
+    features = models.JSONField(default=list)
 
     objects = ObjectTypeManager()
 
@@ -189,7 +188,7 @@ class ObjectType(ContentType):
         verbose_name_plural = _('object types')
         ordering = ('app_label', 'model')
         indexes = [
-            GinIndex(fields=['features']),
+            models.Index(fields=['features']),
         ]
 
     @property
