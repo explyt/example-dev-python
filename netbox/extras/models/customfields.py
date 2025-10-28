@@ -3,14 +3,14 @@ import json
 import re
 from datetime import datetime, date
 
-import django_filters
 from django import forms
 from django.conf import settings
-from django.contrib.postgres.fields import ArrayField
 from django.core.validators import RegexValidator, ValidationError
 from django.db import models
 from django.db.models import F, Func, Value
-from django.db.models.expressions import RawSQL
+# ArrayField not available in SQLite; use JSONField alias
+ArrayField = models.JSONField
+from django.db.models.functions import Coalesce
 from django.urls import reverse
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
@@ -288,17 +288,18 @@ class CustomField(CloningMixin, ExportTemplatesMixin, ChangeLoggedModel):
         b) the assignment of an existing CustomField to new object types.
         """
         if self.default is None:
-            # We have to convert None to a JSON null for jsonb_set()
-            value = RawSQL("'null'::jsonb", [])
+            # On SQLite JSONField accepts None directly
+            value = Value(None, models.JSONField())
         else:
             value = Value(self.default, models.JSONField())
         for ct in content_types:
             ct.model_class().objects.update(
+                # Update JSON by setting key self.name to value using SQLite JSON1
                 custom_field_data=Func(
-                    F('custom_field_data'),
-                    Value([self.name]),
+                    Coalesce(F('custom_field_data'), Value({}, models.JSONField())),
+                    Value(f'$.{self.name}'),
                     value,
-                    function='jsonb_set'
+                    function='json_set'
                 )
             )
 
@@ -309,8 +310,13 @@ class CustomField(CloningMixin, ExportTemplatesMixin, ChangeLoggedModel):
         """
         for ct in content_types:
             if model := ct.model_class():
+                # Remove key from JSON; SQLite supports json_remove via SQL function name 'json_remove'
                 model.objects.update(
-                    custom_field_data=F('custom_field_data') - self.name
+                    custom_field_data=Func(
+                        F('custom_field_data'),
+                        Value(f'$.{self.name}'),
+                        function='json_remove'
+                    )
                 )
 
     def rename_object_data(self, old_name, new_name):
@@ -320,15 +326,23 @@ class CustomField(CloningMixin, ExportTemplatesMixin, ChangeLoggedModel):
         """
         for ct in self.object_types.all():
             ct.model_class().objects.update(
+                # SQLite JSON1 equivalent of: json_set(json_remove(data, '$.old'), '$.new', json_extract(data, '$.old'))
                 custom_field_data=Func(
-                    F('custom_field_data') - old_name,
-                    Value([new_name]),
+                    # json_remove(custom_field_data, '$.old_name')
                     Func(
                         F('custom_field_data'),
-                        function='jsonb_extract_path_text',
-                        template=f"to_jsonb(%(expressions)s -> '{old_name}')"
+                        Value(f'$.{old_name}'),
+                        function='json_remove'
                     ),
-                    function='jsonb_set')
+                    # set new key with old value
+                    Value(f'$.{new_name}'),
+                    Func(
+                        F('custom_field_data'),
+                        Value(f'$.{old_name}'),
+                        function='json_extract'
+                    ),
+                    function='json_set'
+                )
             )
 
     def clean(self):
@@ -578,9 +592,9 @@ class CustomField(CloningMixin, ExportTemplatesMixin, ChangeLoggedModel):
                 field.validators = [
                     RegexValidator(
                         regex=self.validation_regex,
-                        message=mark_safe(_("Values must match this regex: <code>{regex}</code>").format(
-                            regex=escape(self.validation_regex)
-                        ))
+                        message=mark_safe(_("Values must match this regex: <code>%(regex)s</code>") % {
+                            'regex': escape(self.validation_regex)
+                        })
                     )
                 ]
 
@@ -602,7 +616,7 @@ class CustomField(CloningMixin, ExportTemplatesMixin, ChangeLoggedModel):
         :param lookup_expr: Custom lookup expression (optional)
         """
         kwargs = {
-            'field_name': f'custom_field_data__{self.name}'
+            'field_name': 'custom_field_data'
         }
         # Native numeric filters will use `isnull` by default for empty lookups, but
         # JSON fields require `empty` (see bug #20012).
@@ -613,7 +627,9 @@ class CustomField(CloningMixin, ExportTemplatesMixin, ChangeLoggedModel):
 
         # 'Empty' lookup is always a boolean
         if lookup_expr == 'empty':
-            filter_class = django_filters.BooleanFilter
+            # Use JSONEmptyFilter to support JSONField emptiness for arrays/values on SQLite
+            filter_class = filters.JSONEmptyFilter
+            kwargs['json_key'] = self.name
 
         # Text/URL
         elif self.type in (
@@ -621,25 +637,35 @@ class CustomField(CloningMixin, ExportTemplatesMixin, ChangeLoggedModel):
                 CustomFieldTypeChoices.TYPE_LONGTEXT,
                 CustomFieldTypeChoices.TYPE_URL,
         ):
-            filter_class = filters.MultiValueCharFilter
+            # Stored as JSON text at key; use SQLite-aware JSONKeyCharFilter
+            filter_class = filters.JSONKeyCharFilter
+            kwargs['json_key'] = self.name
             if self.filter_logic == CustomFieldFilterLogicChoices.FILTER_LOOSE:
                 kwargs['lookup_expr'] = 'icontains'
 
         # Integer
         elif self.type == CustomFieldTypeChoices.TYPE_INTEGER:
-            filter_class = filters.MultiValueNumberFilter
+            # Use JSONIntegerFilter to compare integers stored in JSON (SQLite JSON1)
+            filter_class = filters.JSONIntegerFilter
+            kwargs['json_key'] = self.name
 
         # Decimal
         elif self.type == CustomFieldTypeChoices.TYPE_DECIMAL:
-            filter_class = filters.MultiValueDecimalFilter
+            # Use JSONDecimalFilter to compare numbers stored in JSON (SQLite JSON1)
+            filter_class = filters.JSONDecimalFilter
+            kwargs['json_key'] = self.name
 
         # Boolean
         elif self.type == CustomFieldTypeChoices.TYPE_BOOLEAN:
-            filter_class = django_filters.BooleanFilter
+            # Use JSONBooleanFilter for SQLite JSON1 compatibility
+            filter_class = filters.JSONBooleanFilter
+            kwargs['json_key'] = self.name
 
         # Date
         elif self.type == CustomFieldTypeChoices.TYPE_DATE:
-            filter_class = filters.MultiValueDateFilter
+            # Use JSONDateFilter to make SQLite JSON1 comparisons work
+            filter_class = filters.JSONDateFilter
+            kwargs['json_key'] = self.name
 
         # Date & time
         elif self.type == CustomFieldTypeChoices.TYPE_DATETIME:
@@ -647,19 +673,27 @@ class CustomField(CloningMixin, ExportTemplatesMixin, ChangeLoggedModel):
 
         # Select
         elif self.type == CustomFieldTypeChoices.TYPE_SELECT:
-            filter_class = filters.MultiValueCharFilter
+            # Value stored as JSON text at key
+            filter_class = filters.JSONKeyCharFilter
+            kwargs['json_key'] = self.name
 
         # Multiselect
         elif self.type == CustomFieldTypeChoices.TYPE_MULTISELECT:
-            filter_class = filters.MultiValueArrayFilter
+            # Use JSON key-aware array filter to support 'null' token and JSON1 on SQLite
+            filter_class = filters.JSONKeyArrayFilter
+            kwargs['json_key'] = self.name
 
         # Object
         elif self.type == CustomFieldTypeChoices.TYPE_OBJECT:
-            filter_class = filters.MultiValueNumberFilter
+            # Single integer stored at JSON key
+            filter_class = filters.JSONIntegerFilter
+            kwargs['json_key'] = self.name
 
         # Multi-object
         elif self.type == CustomFieldTypeChoices.TYPE_MULTIOBJECT:
-            filter_class = filters.MultiValueNumberFilter
+            # JSON array of integers; use SQLite-aware contains based on json_each
+            filter_class = filters.JSONIntegerArrayContainsFilter
+            kwargs['json_key'] = self.name
             kwargs['lookup_expr'] = 'contains'
 
         # Unsupported custom field type
@@ -690,11 +724,11 @@ class CustomField(CloningMixin, ExportTemplatesMixin, ChangeLoggedModel):
                     raise ValidationError(_("Value must be an integer."))
                 if self.validation_minimum is not None and value < self.validation_minimum:
                     raise ValidationError(
-                        _("Value must be at least {minimum}").format(minimum=self.validation_minimum)
+                        _("Value must be at least %(minimum)s") % {'minimum': self.validation_minimum}
                     )
                 if self.validation_maximum is not None and value > self.validation_maximum:
                     raise ValidationError(
-                        _("Value must not exceed {maximum}").format(maximum=self.validation_maximum)
+                        _("Value must not exceed %(maximum)s") % {'maximum': self.validation_maximum}
                     )
 
             # Validate decimal
@@ -705,11 +739,11 @@ class CustomField(CloningMixin, ExportTemplatesMixin, ChangeLoggedModel):
                     raise ValidationError(_("Value must be a decimal."))
                 if self.validation_minimum is not None and value < self.validation_minimum:
                     raise ValidationError(
-                        _("Value must be at least {minimum}").format(minimum=self.validation_minimum)
+                        _("Value must be at least %(minimum)s") % {'minimum': self.validation_minimum}
                     )
                 if self.validation_maximum is not None and value > self.validation_maximum:
                     raise ValidationError(
-                        _("Value must not exceed {maximum}").format(maximum=self.validation_maximum)
+                        _("Value must not exceed %(maximum)s") % {'maximum': self.validation_maximum}
                     )
 
             # Validate boolean
@@ -738,36 +772,30 @@ class CustomField(CloningMixin, ExportTemplatesMixin, ChangeLoggedModel):
             elif self.type == CustomFieldTypeChoices.TYPE_SELECT:
                 if value not in self.choice_set.values:
                     raise ValidationError(
-                        _("Invalid choice ({value}) for choice set {choiceset}.").format(
-                            value=value,
-                            choiceset=self.choice_set
-                        )
+                        _("Invalid choice (%(value)s) for choice set %(choiceset)s.") % {'value': value, 'choiceset': self.choice_set}
                     )
 
             # Validate all selected choices
             elif self.type == CustomFieldTypeChoices.TYPE_MULTISELECT:
                 if not set(value).issubset(self.choice_set.values):
                     raise ValidationError(
-                        _("Invalid choice(s) ({value}) for choice set {choiceset}.").format(
-                            value=value,
-                            choiceset=self.choice_set
-                        )
+                        _("Invalid choice(s) (%(value)s) for choice set %(choiceset)s.") % {'value': value, 'choiceset': self.choice_set}
                     )
 
             # Validate selected object
             elif self.type == CustomFieldTypeChoices.TYPE_OBJECT:
                 if type(value) is not int:
-                    raise ValidationError(_("Value must be an object ID, not {type}").format(type=type(value).__name__))
+                    raise ValidationError(_("Value must be an object ID, not %(type)s") % {'type': type(value).__name__})
 
             # Validate selected objects
             elif self.type == CustomFieldTypeChoices.TYPE_MULTIOBJECT:
                 if type(value) is not list:
                     raise ValidationError(
-                        _("Value must be a list of object IDs, not {type}").format(type=type(value).__name__)
+                        _("Value must be a list of object IDs, not %(type)s") % {'type': type(value).__name__}
                     )
                 for id in value:
                     if type(id) is not int:
-                        raise ValidationError(_("Found invalid object ID: {id}").format(id=id))
+                        raise ValidationError(_("Found invalid object ID: %(id)s") % {'id': id})
 
         elif self.required:
             raise ValidationError(_("Required field cannot be empty."))
@@ -792,11 +820,7 @@ class CustomFieldChoiceSet(CloningMixin, ExportTemplatesMixin, ChangeLoggedModel
         null=True,
         help_text=_('Base set of predefined choices (optional)')
     )
-    extra_choices = ArrayField(
-        ArrayField(
-            base_field=models.CharField(max_length=100),
-            size=2
-        ),
+    extra_choices = models.JSONField(
         blank=True,
         null=True
     )

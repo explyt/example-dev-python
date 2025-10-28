@@ -20,7 +20,7 @@ class L2VPN(ContactsMixin, PrimaryModel):
         verbose_name=_('name'),
         max_length=100,
         unique=True,
-        db_collation="natural_sort"
+        # db_collation omitted under SQLite: natural_sort
     )
     slug = models.SlugField(
         verbose_name=_('slug'),
@@ -130,9 +130,7 @@ class L2VPNTermination(NetBoxModel):
             if L2VPNTermination.objects.filter(assigned_object_id=obj_id, assigned_object_type=obj_type).\
                     exclude(pk=self.pk).count() > 0:
                 raise ValidationError(
-                    _('L2VPN Termination already assigned ({assigned_object})').format(
-                        assigned_object=self.assigned_object
-                    )
+                    _('L2VPN Termination already assigned (%(assigned_object)s)') % {'assigned_object': self.assigned_object}
                 )
 
         # Only check if L2VPN is set and is of type P2P

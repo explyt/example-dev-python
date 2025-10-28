@@ -1,4 +1,5 @@
 import logging
+import uuid
 from collections import defaultdict
 
 from django.conf import settings
@@ -95,7 +96,7 @@ def process_event_rules(event_rules, object_type, event_type, data, username=Non
             continue
 
         # Compile event data
-        event_data = event_rule.action_data or {}
+        event_data = dict(event_rule.action_data or {})
         event_data.update(data)
 
         # Webhooks
@@ -116,6 +117,7 @@ def process_event_rules(event_rules, object_type, event_type, data, username=Non
                 "username": username,
                 "retry": get_rq_retry()
             }
+
             if snapshots:
                 params["snapshots"] = snapshots
             if request:
@@ -152,9 +154,7 @@ def process_event_rules(event_rules, object_type, event_type, data, username=Non
             )
 
         else:
-            raise ValueError(_("Unknown action type for an event rule: {action_type}").format(
-                action_type=event_rule.action_type
-            ))
+            raise ValueError(_("Unknown action type for an event rule: %(action_type)s") % {'action_type': event_rule.action_type})
 
 
 def process_event_queue(events):
@@ -197,4 +197,4 @@ def flush_events(events):
                 func = import_string(name)
                 func(events)
             except ImportError as e:
-                logger.error(_("Cannot import events pipeline {name} error: {error}").format(name=name, error=e))
+                logger.error(_("Cannot import events pipeline %(name)s error: %(error)s") % {'name': name, 'error': e})

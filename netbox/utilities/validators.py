@@ -68,7 +68,7 @@ class MultipleOfValidator(BaseValidator):
     def __call__(self, value):
         if decimal.Decimal(str(value)) % self.multiple != 0:
             raise ValidationError(
-                _("{value} must be a multiple of {multiple}.").format(value=value, multiple=self.multiple)
+                _("%(value)s must be a multiple of %(multiple)s.") % {'value': value, 'multiple': self.multiple}
             )
 
 
@@ -80,4 +80,4 @@ def validate_regex(value):
     try:
         re.compile(value)
     except re.error:
-        raise ValidationError(_("{value} is not a valid regular expression.").format(value=value))
+        raise ValidationError(_("%(value)s is not a valid regular expression.") % {'value': value})

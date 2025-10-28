@@ -18,7 +18,7 @@ class ASNRange(OrganizationalModel):
         verbose_name=_('name'),
         max_length=100,
         unique=True,
-        db_collation="natural_sort"
+        # db_collation omitted under SQLite: natural_sort
     )
     slug = models.SlugField(
         verbose_name=_('slug'),
@@ -67,9 +67,7 @@ class ASNRange(OrganizationalModel):
 
         if self.end <= self.start:
             raise ValidationError(
-                _("Starting ASN ({start}) must be lower than ending ASN ({end}).").format(
-                    start=self.start, end=self.end
-                )
+                _("Starting ASN (%(start)s) must be lower than ending ASN (%(end)s).") % {'start': self.start, 'end': self.end}
             )
 
     def get_child_asns(self):

@@ -26,6 +26,7 @@ class CoreConfig(AppConfig):
         from netbox.models.features import register_models
         from . import data_backends, events, search  # noqa: F401
         from netbox import context_managers  # noqa: F401
+        from utilities import sqlite_collations  # noqa: F401
 
         # Register models
         register_models(*self.get_models())
@@ -39,7 +40,7 @@ class CoreConfig(AppConfig):
         EventType(JOB_FAILED, _('Job failed'), kind=EVENT_TYPE_KIND_WARNING).register()
         EventType(JOB_ERRORED, _('Job errored'), kind=EVENT_TYPE_KIND_DANGER).register()
 
-        # Clear Redis cache on startup in development mode
+        # Clear cache on startup in development mode
         if settings.DEBUG:
             try:
                 cache.clear()

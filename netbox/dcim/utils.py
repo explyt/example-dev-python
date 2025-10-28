@@ -51,7 +51,7 @@ def rebuild_paths(terminations):
     from dcim.models import CablePath
 
     for obj in terminations:
-        cable_paths = CablePath.objects.filter(_nodes__contains=obj)
+        cable_paths = CablePath.objects.filter(_nodes__contains=object_to_path_node(obj))
 
         with transaction.atomic(using=router.db_for_write(CablePath)):
             for cp in cable_paths:

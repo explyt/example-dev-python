@@ -99,7 +99,7 @@ class RenderTemplateMixin(models.Model):
         max_length=50,
         blank=True,
         verbose_name=_('MIME type'),
-        help_text=_('Defaults to <code>{default}</code>').format(default=DEFAULT_MIME_TYPE),
+        help_text=_('Defaults to <code>%(default)s</code>') % {'default': DEFAULT_MIME_TYPE},
     )
     file_name = models.CharField(
         max_length=200,
@@ -122,9 +122,7 @@ class RenderTemplateMixin(models.Model):
         abstract = True
 
     def get_context(self, context=None, queryset=None):
-        raise NotImplementedError(_("{class_name} must implement a get_context() method.").format(
-            class_name=self.__class__
-        ))
+        raise NotImplementedError(_("%(class_name)s must implement a get_context() method.") % {'class_name': self.__class__})
 
     def get_environment_params(self):
         """

@@ -1582,8 +1582,16 @@ class DeviceComponentFilterSet(django_filters.FilterSet):
     )
     device_id = django_filters.ModelMultipleChoiceFilter(
         queryset=Device.objects.all(),
+        method='filter_device_id',
         label=_('Device (ID)'),
     )
+
+    def filter_device_id(self, queryset, name, value):
+        # Ensure deterministic behavior across backends by avoiding extraneous JOINs and enforcing distinct
+        if not value:
+            return queryset
+        ids = [v.pk if hasattr(v, 'pk') else int(v) for v in value]
+        return queryset.filter(device_id__in=ids).distinct()
     device = django_filters.ModelMultipleChoiceFilter(
         field_name='device__name',
         queryset=Device.objects.all(),
@@ -1636,6 +1644,11 @@ class DeviceComponentFilterSet(django_filters.FilterSet):
             Q(label__icontains=value) |
             Q(description__icontains=value)
         )
+
+    # Ensure deterministic result sets where certain JOINs may introduce duplicates
+    def filter_queryset(self, queryset):
+        qs = super().filter_queryset(queryset)
+        return qs.distinct()
 
 
 class ModularDeviceComponentFilterSet(DeviceComponentFilterSet):
@@ -2103,6 +2116,21 @@ class RearPortFilterSet(
         choices=PortTypeChoices,
         null_value=None
     )
+    # Override device_id to avoid duplicate rows on SQLite due to implicit joins
+    device_id = django_filters.ModelMultipleChoiceFilter(
+        queryset=Device.objects.all(),
+        method='filter_device_id',
+        label=_('Device (ID)'),
+    )
+
+    def filter_device_id(self, queryset, name, value):
+        if not value:
+            return queryset
+        ids = [v.pk if hasattr(v, 'pk') else int(v) for v in value]
+        # Resolve matching PKs first to avoid any duplication introduced by implicit joins/orderings
+        matching_pks = list(queryset.filter(device_id__in=ids).values_list('pk', flat=True).distinct())
+        qs = queryset.filter(pk__in=matching_pks)
+        return qs
 
     class Meta:
         model = RearPort
@@ -2449,6 +2477,11 @@ class CableFilterSet(TenancyFilterSet, NetBoxModelFilterSet):
 
 
 class CableTerminationFilterSet(ChangeLoggedModelFilterSet):
+    cable_id = django_filters.ModelMultipleChoiceFilter(
+        queryset=Cable.objects.all(),
+        field_name='cable',
+        label=_('Cable (ID)'),
+    )
     termination_type = ContentTypeFilter()
 
     class Meta:

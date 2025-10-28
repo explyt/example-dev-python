@@ -3,7 +3,6 @@ from functools import cached_property
 
 from django.conf import settings
 from django.contrib.contenttypes.fields import GenericRelation
-from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
@@ -262,7 +261,7 @@ class Rack(ContactsMixin, ImageAttachmentsMixin, RackBase):
     name = models.CharField(
         verbose_name=_('name'),
         max_length=100,
-        db_collation="natural_sort"
+        # db_collation omitted under SQLite: natural_sort
     )
     facility_id = models.CharField(
         max_length=50,
@@ -669,9 +668,9 @@ class RackReservation(PrimaryModel):
         on_delete=models.CASCADE,
         related_name='reservations'
     )
-    units = ArrayField(
+    units = models.JSONField(
+        default=list,
         verbose_name=_('units'),
-        base_field=models.PositiveSmallIntegerField()
     )
     status = models.CharField(
         verbose_name=_('status'),
@@ -714,13 +713,15 @@ class RackReservation(PrimaryModel):
         if hasattr(self, 'rack') and self.units:
 
             # Validate that all specified units exist in the Rack.
-            invalid_units = [u for u in self.units if u not in self.rack.units]
+            # Convert generator to list to avoid exhaustion during iteration
+            rack_units = list(self.rack.units)
+            invalid_units = [u for u in self.units if u not in rack_units]
             if invalid_units:
                 raise ValidationError({
-                    'units': _("Invalid unit(s) for {height}U rack: {unit_list}").format(
-                        height=self.rack.u_height,
-                        unit_list=', '.join([str(u) for u in invalid_units])
-                    ),
+                    'units': _("Invalid unit(s) for %(height)sU rack: %(unit_list)s") % {
+                        'height': self.rack.u_height,
+                        'unit_list': ', '.join([str(u) for u in invalid_units])
+                    },
                 })
 
             # Check that none of the units has already been reserved for this Rack.

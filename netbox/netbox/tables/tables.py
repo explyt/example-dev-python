@@ -55,7 +55,7 @@ class BaseTable(tables.Table):
 
         # Set default empty_text if none was provided
         if self.empty_text is None:
-            self.empty_text = _("No {model_name} found").format(model_name=self._meta.model._meta.verbose_name_plural)
+            self.empty_text = _("No %(model_name)s found") % {'model_name': self._meta.model._meta.verbose_name_plural}
 
         # Dynamically update the table's QuerySet to ensure related fields are pre-fetched
         if isinstance(self.data, TableQuerysetData):

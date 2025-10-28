@@ -33,7 +33,7 @@ def get_widget_class(name):
     try:
         return registry['widgets'][name]
     except KeyError:
-        raise ValueError(_("Unregistered widget class: {name}").format(name=name))
+        raise ValueError(_("Unregistered widget class: %(name)s") % {'name': name})
 
 
 def get_dashboard(user):

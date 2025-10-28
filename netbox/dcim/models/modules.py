@@ -137,7 +137,7 @@ class ModuleType(ImageAttachmentsMixin, PrimaryModel, WeightMixin):
             try:
                 jsonschema.validate(self.attribute_data, schema=self.profile.schema)
             except JSONValidationError as e:
-                raise ValidationError(_("Invalid schema: {error}").format(error=e))
+                raise ValidationError(_("Invalid schema: %(error)s") % {'error': e})
         else:
             self.attribute_data = None
 
@@ -244,9 +244,7 @@ class Module(PrimaryModel, ConfigContextModel):
 
         if hasattr(self, "module_bay") and (self.module_bay.device != self.device):
             raise ValidationError(
-                _("Module must be installed within a module bay belonging to the assigned device ({device}).").format(
-                    device=self.device
-                )
+                _("Module must be installed within a module bay belonging to the assigned device (%(device)s).") % {'device': self.device}
             )
 
         # Check for recursion

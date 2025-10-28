@@ -96,7 +96,7 @@ class Notification(models.Model):
         # Validate the assigned object type
         if not has_feature(self.object_type, 'notifications'):
             raise ValidationError(
-                _("Objects of this type ({type}) do not support notifications.").format(type=self.object_type)
+                _("Objects of this type (%(type)s) do not support notifications.") % {'type': self.object_type}
             )
 
     def save(self, *args, **kwargs):
@@ -240,5 +240,5 @@ class Subscription(models.Model):
         # Validate the assigned object type
         if not has_feature(self.object_type, 'notifications'):
             raise ValidationError(
-                _("Objects of this type ({type}) do not support notifications.").format(type=self.object_type)
+                _("Objects of this type (%(type)s) do not support notifications.") % {'type': self.object_type}
             )

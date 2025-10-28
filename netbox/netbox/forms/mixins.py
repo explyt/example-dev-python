@@ -55,9 +55,7 @@ class CustomFieldsMixin:
         Return the ObjectType of the form's model.
         """
         if not getattr(self, 'model', None):
-            raise NotImplementedError(_("{class_name} must specify a model class.").format(
-                class_name=self.__class__.__name__
-            ))
+            raise NotImplementedError(_("%(class_name)s must specify a model class.") % {'class_name': self.__class__.__name__})
         return ObjectType.objects.get_for_model(self.model)
 
     def _get_custom_fields(self, content_type):

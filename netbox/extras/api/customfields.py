@@ -86,7 +86,7 @@ class CustomFieldsDataField(Field):
                 if serializer.is_valid():
                     data[cf.name] = [obj['id'] for obj in serializer.data] if many else serializer.data['id']
                 else:
-                    raise ValidationError(_("Unknown related object(s): {name}").format(name=data[cf.name]))
+                    raise ValidationError(_("Unknown related object(s): %(name)s") % {'name': data[cf.name]})
 
         # If updating an existing instance, start with existing custom_field_data
         if self.parent.instance:

@@ -1,4 +1,5 @@
-from django.contrib.contenttypes.models import ContentType
+# Migration safety: use apps.get_model in RunPython if needed
+
 from django.db import migrations
 from django.db.models import F
 
@@ -58,6 +59,8 @@ class Migration(migrations.Migration):
 
 
 def oc_service_parent(objectchange, reverting):
+    from django.contrib.contenttypes.models import ContentType
+
     device_ct = ContentType.objects.get_by_natural_key('dcim', 'device').pk
     virtual_machine_ct = ContentType.objects.get_by_natural_key('virtualization', 'virtualmachine').pk
     for data in (objectchange.prechange_data, objectchange.postchange_data):
