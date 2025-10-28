@@ -51,7 +51,7 @@ class ComponentModel(NetBoxModel):
     name = models.CharField(
         verbose_name=_('name'),
         max_length=64,
-        db_collation="natural_sort"
+        # db_collation omitted under SQLite: natural_sort
     )
     label = models.CharField(
         verbose_name=_('label'),
@@ -229,7 +229,7 @@ class CabledObjectModel(models.Model):
     @property
     def parent_object(self):
         raise NotImplementedError(
-            _("{class_name} models must declare a parent_object property").format(class_name=self.__class__.__name__)
+            _("%(class_name)s models must declare a parent_object property") % {'class_name': self.__class__.__name__}
         )
 
     @property
@@ -529,7 +529,7 @@ class PowerOutlet(ModularComponentModel, CabledObjectModel, PathEndpoint, Tracki
         # Validate power port assignment
         if self.power_port and self.power_port.device != self.device:
             raise ValidationError(
-                _("Parent power port ({power_port}) must belong to the same device").format(power_port=self.power_port)
+                _("Parent power port (%(power_port)s) must belong to the same device") % {'power_port': self.power_port}
             )
 
     def get_status_color(self):
@@ -848,9 +848,9 @@ class Interface(ModularComponentModel, BaseInterface, CabledObjectModel, PathEnd
         # Virtual Interfaces cannot have a Cable attached
         if self.is_virtual and self.cable:
             raise ValidationError({
-                'type': _("{display_type} interfaces cannot have a cable attached.").format(
-                    display_type=self.get_type_display()
-                )
+                'type': _("%(display_type)s interfaces cannot have a cable attached.") % {
+                    'display_type': self.get_type_display()
+                }
             })
 
         # Virtual Interfaces cannot be marked as connected
@@ -1113,10 +1113,21 @@ class FrontPort(ModularComponentModel, CabledObjectModel, TrackingModelMixin):
     def clean(self):
         super().clean()
 
-        if hasattr(self, 'rear_port'):
+        if hasattr(self, 'rear_port') and self.rear_port:
+            # Ensure rear_port.device is loaded
+            if not hasattr(self.rear_port, '_device_cache'):
+                try:
+                    # Force load the device if not already loaded
+                    rear_port_device = self.rear_port.device
+                except Exception:
+                    # If we can't load the device, skip validation
+                    # This can happen during deserialization
+                    return
+            else:
+                rear_port_device = self.rear_port.device
 
             # Validate rear port assignment
-            if self.rear_port.device != self.device:
+            if rear_port_device != self.device:
                 raise ValidationError({
                     "rear_port": _(
                         "Rear port ({rear_port}) must belong to the same device"
@@ -1264,9 +1275,7 @@ class DeviceBay(ComponentModel, TrackingModelMixin):
 
         # Validate that the parent Device can have DeviceBays
         if hasattr(self, 'device') and not self.device.device_type.is_parent_device:
-            raise ValidationError(_("This type of device ({device_type}) does not support device bays.").format(
-                device_type=self.device.device_type
-            ))
+            raise ValidationError(_("This type of device (%(device_type)s) does not support device bays.") % {'device_type': self.device.device_type})
 
         # Cannot install a device into itself, obviously
         if self.installed_device and getattr(self, 'device', None) == self.installed_device:

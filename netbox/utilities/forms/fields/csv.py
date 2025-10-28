@@ -41,7 +41,7 @@ class CSVMultipleChoiceField(CSVChoicesMixin, forms.MultipleChoiceField):
         if not value:
             return []
         if not isinstance(value, str):
-            raise forms.ValidationError(_("Invalid value for a multiple choice field: {value}").format(value=value))
+            raise forms.ValidationError(_("Invalid value for a multiple choice field: %(value)s") % {'value': value})
         return value.split(',')
 
 

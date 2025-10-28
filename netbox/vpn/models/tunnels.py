@@ -32,7 +32,7 @@ class Tunnel(ContactsMixin, PrimaryModel):
         verbose_name=_('name'),
         max_length=100,
         unique=True,
-        db_collation="natural_sort"
+        # db_collation omitted under SQLite: natural_sort
     )
     status = models.CharField(
         verbose_name=_('status'),
@@ -163,10 +163,7 @@ class TunnelTermination(CustomFieldsMixin, CustomLinksMixin, TagsMixin, ChangeLo
         # Check that the selected termination object is not already attached to a Tunnel
         if getattr(self.termination, 'tunnel_termination', None) and self.termination.tunnel_termination.pk != self.pk:
             raise ValidationError({
-                'termination': _("{name} is already attached to a tunnel ({tunnel}).").format(
-                    name=self.termination.name,
-                    tunnel=self.termination.tunnel_termination.tunnel
-                )
+                'termination': _("%(name)s is already attached to a tunnel (%(tunnel)s).") % {'name': self.termination.name, 'tunnel': self.termination.tunnel_termination.tunnel}
             })
 
     def to_objectchange(self, action):

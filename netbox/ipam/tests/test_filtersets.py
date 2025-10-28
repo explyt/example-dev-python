@@ -1,5 +1,5 @@
 from django.contrib.contenttypes.models import ContentType
-from django.db.backends.postgresql.psycopg_any import NumericRange
+from utilities.data import NumericRange
 from django.test import TestCase
 from netaddr import IPNetwork
 

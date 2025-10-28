@@ -134,7 +134,7 @@ class CSVModelForm(forms.ModelForm):
         for header in self.headers:
             if header not in self.fields:
                 raise forms.ValidationError(
-                    _("Unrecognized header: {name}").format(name=header)
+                    _("Unrecognized header: %(name)s") % {'name': header}
                 )
 
         return super().clean()

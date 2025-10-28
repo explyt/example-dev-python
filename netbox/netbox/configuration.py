@@ -8,65 +8,27 @@
 # access to the server via any other hostnames. The first FQDN in the list will be treated as the preferred name.
 #
 # Example: ALLOWED_HOSTS = ['netbox.example.com', 'netbox.internal.local']
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '0.0.0.0']
 
-# PostgreSQL database configuration. See the Django documentation for a complete list of available parameters:
+# Database configuration. See the Django documentation for a complete list of available parameters:
 #   https://docs.djangoproject.com/en/stable/ref/settings/#databases
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',  # Database engine
-        'NAME': 'netbox',         # Database name
-        'USER': '',               # PostgreSQL username
-        'PASSWORD': '',           # PostgreSQL password
-        'HOST': 'localhost',      # Database server
-        'PORT': '',               # Database port (leave blank for default)
-        'CONN_MAX_AGE': 300,      # Max database connection age
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': 'netbox.db',
+        'CONN_MAX_AGE': 0,
     }
 }
 
-# Redis database settings. Redis is used for caching and for queuing background tasks such as webhook events. A separate
-# configuration exists for each. Full connection details are required in both sections, and it is strongly recommended
-# to use two separate database IDs.
-REDIS = {
-    'tasks': {
-        'HOST': 'localhost',
-        'PORT': 6379,
-        # Comment out `HOST` and `PORT` lines and uncomment the following if using Redis Sentinel
-        # 'SENTINELS': [('mysentinel.redis.example.com', 6379)],
-        # 'SENTINEL_SERVICE': 'netbox',
-        'USERNAME': '',
-        'PASSWORD': '',
-        'DATABASE': 0,
-        'SSL': False,
-        # Set this to True to skip TLS certificate verification
-        # This can expose the connection to attacks, be careful
-        # 'INSECURE_SKIP_TLS_VERIFY': False,
-        # Set a path to a certificate authority, typically used with a self signed certificate.
-        # 'CA_CERT_PATH': '/etc/ssl/certs/ca.crt',
-    },
-    'caching': {
-        'HOST': 'localhost',
-        'PORT': 6379,
-        # Comment out `HOST` and `PORT` lines and uncomment the following if using Redis Sentinel
-        # 'SENTINELS': [('mysentinel.redis.example.com', 6379)],
-        # 'SENTINEL_SERVICE': 'netbox',
-        'USERNAME': '',
-        'PASSWORD': '',
-        'DATABASE': 1,
-        'SSL': False,
-        # Set this to True to skip TLS certificate verification
-        # This can expose the connection to attacks, be careful
-        # 'INSECURE_SKIP_TLS_VERIFY': False,
-        # Set a path to a certificate authority, typically used with a self signed certificate.
-        # 'CA_CERT_PATH': '/etc/ssl/certs/ca.crt',
-    }
-}
+# Cache and task queue settings
+# The system uses diskcache for persistent storage.
+# No additional configuration required - cache directory is set via DISKCACHE_DIR environment variable.
 
 # This key is used for secure generation of random numbers and strings. It must never be exposed outside of this file.
 # For optimal security, SECRET_KEY should be at least 50 characters in length and contain a mix of letters, numbers, and
 # symbols. NetBox will not run without this defined. For more information, see
 # https://docs.djangoproject.com/en/stable/ref/settings/#std:setting-SECRET_KEY
-SECRET_KEY = ''
+SECRET_KEY = 'Vxf&lm*jves-lO*$b8MCXY(648xnXNYeYCLV%KmE3N0jvRzeiK'
 
 
 #########################
@@ -116,7 +78,7 @@ CSRF_COOKIE_NAME = 'csrftoken'
 # Set to True to enable server debugging. WARNING: Debugging introduces a substantial performance penalty and may reveal
 # sensitive information about your installation. Only enable debugging while performing testing. Never enable debugging
 # on a production system.
-DEBUG = False
+DEBUG = True
 
 # Set the default preferred language/locale
 DEFAULT_LANGUAGE = 'en-us'
@@ -179,8 +141,8 @@ LOGOUT_REDIRECT_URL = 'home'
 # Expose Prometheus monitoring metrics at the HTTP endpoint '/metrics'
 METRICS_ENABLED = False
 
-# Enable installed plugins. Add the name of each plugin to the list.
-PLUGINS = []
+# Enable installed plugins for tests; include dummy plugin to exercise plugin hooks
+PLUGINS = ['netbox.tests.dummy_plugin']
 
 # Plugins configuration settings. These settings are used by various plugins that the user may have installed.
 # Each key in the dictionary is the name of an installed plugin and its value is a dictionary of settings.

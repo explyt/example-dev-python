@@ -73,9 +73,7 @@ class ContentTypePermissionRequiredMixin(ConditionalLoginRequiredMixin):
         """
         Return the specific permission necessary to perform the requested action on an object.
         """
-        raise NotImplementedError(_("{self.__class__.__name__} must implement get_required_permission()").format(
-            class_name=self.__class__.__name__
-        ))
+        raise NotImplementedError(_("{self.__class__.__name__} must implement get_required_permission()") % {'class_name': self.__class__.__name__})
 
     def has_permission(self):
         user = self.request.user
@@ -109,9 +107,7 @@ class ObjectPermissionRequiredMixin(ConditionalLoginRequiredMixin):
         """
         Return the specific permission necessary to perform the requested action on an object.
         """
-        raise NotImplementedError(_("{class_name} must implement get_required_permission()").format(
-            class_name=self.__class__.__name__
-        ))
+        raise NotImplementedError(_("%(class_name)s must implement get_required_permission()") % {'class_name': self.__class__.__name__})
 
     def has_permission(self):
         user = self.request.user

@@ -4,7 +4,6 @@ from pathlib import Path
 
 from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
-from django.contrib.postgres.fields import ArrayField
 from django.core.validators import ValidationError
 from django.db import models
 from django.urls import reverse
@@ -20,7 +19,6 @@ from extras.constants import *
 from extras.models.mixins import RenderTemplateMixin
 from extras.utils import image_upload
 from netbox.config import get_config
-from netbox.events import get_event_type_choices
 from netbox.models import ChangeLoggedModel
 from netbox.models.features import (
     CloningMixin, CustomFieldsMixin, CustomLinksMixin, ExportTemplatesMixin, SyncedDataMixin, TagsMixin, has_feature
@@ -66,9 +64,9 @@ class EventRule(CustomFieldsMixin, ExportTemplatesMixin, TagsMixin, ChangeLogged
         max_length=200,
         blank=True
     )
-    event_types = ArrayField(
-        base_field=models.CharField(max_length=50, choices=get_event_type_choices),
-        help_text=_("The types of event which will trigger this rule.")
+    event_types = models.JSONField(
+        default=list,
+        help_text=_("The types of event which will trigger this rule."),
     )
     enabled = models.BooleanField(
         verbose_name=_('enabled'),
@@ -577,14 +575,8 @@ class TableConfig(CloningMixin, ChangeLoggedModel):
         verbose_name=_('shared'),
         default=True
     )
-    columns = ArrayField(
-        base_field=models.CharField(max_length=100),
-    )
-    ordering = ArrayField(
-        base_field=models.CharField(max_length=100),
-        blank=True,
-        null=True,
-    )
+    columns = models.JSONField(default=list)
+    ordering = models.JSONField(blank=True, null=True)
 
     clone_fields = ('object_type', 'table', 'enabled', 'shared', 'columns', 'ordering')
 
@@ -629,7 +621,7 @@ class TableConfig(CloningMixin, ChangeLoggedModel):
         # Validate table
         if self.table_class is None:
             raise ValidationError({
-                'table': _("Unknown table: {name}").format(name=self.table)
+                'table': _("Unknown table: %(name)s") % {'name': self.table}
             })
 
         table = self.table_class([])
@@ -640,14 +632,14 @@ class TableConfig(CloningMixin, ChangeLoggedModel):
                 name = name[1:]  # Strip leading hyphen
             if name not in table.columns:
                 raise ValidationError({
-                    'ordering': _('Unknown column: {name}').format(name=name)
+                    'ordering': _('Unknown column: %(name)s') % {'name': name}
                 })
 
         # Validate selected columns
         for name in self.columns:
             if name not in table.columns:
                 raise ValidationError({
-                    'columns': _('Unknown column: {name}').format(name=name)
+                    'columns': _('Unknown column: %(name)s') % {'name': name}
                 })
 
 
@@ -710,7 +702,7 @@ class ImageAttachment(ChangeLoggedModel):
         # Validate the assigned object type
         if not has_feature(self.object_type, 'image_attachments'):
             raise ValidationError(
-                _("Image attachments cannot be assigned to this object type ({type}).").format(type=self.object_type)
+                _("Image attachments cannot be assigned to this object type (%(type)s).") % {'type': self.object_type}
             )
 
     def delete(self, *args, **kwargs):
@@ -824,7 +816,7 @@ class JournalEntry(CustomFieldsMixin, CustomLinksMixin, TagsMixin, ExportTemplat
         # Validate the assigned object type
         if not has_feature(self.assigned_object_type, 'journaling'):
             raise ValidationError(
-                _("Journaling is not supported for this object type ({type}).").format(type=self.assigned_object_type)
+                _("Journaling is not supported for this object type (%(type)s).") % {'type': self.assigned_object_type}
             )
 
     def get_kind_color(self):
@@ -883,5 +875,5 @@ class Bookmark(models.Model):
         # Validate the assigned object type
         if not has_feature(self.object_type, 'bookmarks'):
             raise ValidationError(
-                _("Bookmarks cannot be assigned to this object type ({type}).").format(type=self.object_type)
+                _("Bookmarks cannot be assigned to this object type (%(type)s).") % {'type': self.object_type}
             )

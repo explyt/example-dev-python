@@ -112,9 +112,7 @@ class ObjectChildrenView(ObjectView, ActionsMixin, TableMixin):
             request: The current request
             parent: The parent object
         """
-        raise NotImplementedError(_('{class_name} must implement get_children()').format(
-            class_name=self.__class__.__name__
-        ))
+        raise NotImplementedError(_('%(class_name)s must implement get_children()') % {'class_name': self.__class__.__name__})
 
     def prep_table_data(self, request, queryset, parent):
         """

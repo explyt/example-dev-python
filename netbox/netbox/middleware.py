@@ -233,9 +233,7 @@ class MaintenanceModeMiddleware:
         Args:
             allow_write (bool): If True, write operations will be permitted.
         """
-        with connection.cursor() as cursor:
-            mode = 'READ WRITE' if allow_write else 'READ ONLY'
-            cursor.execute(f'SET SESSION CHARACTERISTICS AS TRANSACTION {mode};')
+        pass
 
     def process_exception(self, request, exception):
         """

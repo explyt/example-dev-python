@@ -3,7 +3,7 @@ from typing import Annotated, TYPE_CHECKING
 
 import strawberry
 import strawberry_django
-from django.contrib.contenttypes.models import ContentType as DjangoContentType
+from django.contrib.contenttypes.models import ContentType
 from strawberry.scalars import ID
 from strawberry_django import DatetimeFilterLookup, FilterLookup
 
@@ -82,7 +82,7 @@ class ObjectChangeFilter(BaseFilterMixin):
     )
 
 
-@strawberry_django.filter_type(DjangoContentType, lookups=True)
+@strawberry_django.filter_type(ContentType, lookups=True)
 class ContentTypeFilter(BaseFilterMixin):
     id: ID | None = strawberry_django.filter_field()
     app_label: FilterLookup[str] | None = strawberry_django.filter_field()

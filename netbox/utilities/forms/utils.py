@@ -71,9 +71,7 @@ def parse_alphanumeric_range(string):
         if begin.isdigit() and end.isdigit():
             if int(begin) >= int(end):
                 raise forms.ValidationError(
-                    _('Invalid range: Ending value ({end}) must be greater than beginning value ({begin}).').format(
-                        begin=begin, end=end
-                    )
+                    _('Invalid range: Ending value (%(end)s) must be greater than beginning value (%(begin)s).') % {'begin': begin, 'end': end}
                 )
             for n in list(range(int(begin), int(end) + 1)):
                 values.append(n)
@@ -247,9 +245,9 @@ def parse_csv(reader):
     for i, row in enumerate(reader, start=1):
         if len(row) != len(headers):
             raise forms.ValidationError(
-                _("Row {row}: Expected {count_expected} columns but found {count_found}").format(
-                    row=i, count_expected=len(headers), count_found=len(row)
-                )
+                _("Row %(row)s: Expected %(count_expected)s columns but found %(count_found)s") % {
+                    'row': i, 'count_expected': len(headers), 'count_found': len(row)
+                }
             )
         row = [col.strip() for col in row]
         record = dict(zip(headers.keys(), row))

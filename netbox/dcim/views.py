@@ -126,10 +126,7 @@ class BulkDisconnectView(GetReturnURLMixin, ObjectPermissionRequiredMixin, View)
                     for cable in Cable.objects.filter(pk__in=cable_ids):
                         cable.delete()
 
-                messages.success(request, _("Disconnected {count} {type}").format(
-                    count=count,
-                    type=self.queryset.model._meta.verbose_name_plural
-                ))
+                messages.success(request, _("Disconnected %(count)s %(type)s") % {'count': count, 'type': self.queryset.model._meta.verbose_name_plural})
 
                 return redirect(return_url)
 
@@ -167,7 +164,8 @@ class PathTraceView(generic.ObjectView):
 
         # Otherwise, find all CablePaths which traverse the specified object
         else:
-            related_paths = CablePath.objects.filter(_nodes__contains=instance)
+            from dcim.utils import object_to_path_node
+            related_paths = CablePath.objects.filter(_nodes__contains=object_to_path_node(instance))
             # Check for specification of a particular path (when tracing pass-through ports)
             try:
                 path_id = int(request.GET.get('cablepath_id'))
@@ -3213,10 +3211,7 @@ class DeviceBayPopulateView(generic.ObjectEditView):
             device_bay.save()
             messages.success(
                 request,
-                _("Installed device {device} in bay {device_bay}.").format(
-                    device=device_bay.installed_device,
-                    device_bay=device_bay
-                )
+                _("Installed device %(device)s in bay %(device_bay)s.") % {'device': device_bay.installed_device, 'device_bay': device_bay}
             )
             return_url = self.get_return_url(request)
 
@@ -3254,10 +3249,7 @@ class DeviceBayDepopulateView(generic.ObjectEditView):
             device_bay.save()
             messages.success(
                 request,
-                _("Removed device {device} from bay {device_bay}.").format(
-                    device=removed_device,
-                    device_bay=device_bay
-                )
+                _("Removed device %(device)s from bay %(device_bay)s.") % {'device': removed_device, 'device_bay': device_bay}
             )
             return_url = self.get_return_url(request, device_bay.device)
 
@@ -3886,7 +3878,7 @@ class VirtualChassisRemoveMemberView(ObjectPermissionRequiredMixin, GetReturnURL
         if virtual_chassis is not None:
             messages.error(
                 request,
-                _('Unable to remove master device {device} from the virtual chassis.').format(device=device)
+                _('Unable to remove master device %(device)s from the virtual chassis.') % {'device': device}
             )
             return redirect(device.get_absolute_url())
 
@@ -3899,10 +3891,7 @@ class VirtualChassisRemoveMemberView(ObjectPermissionRequiredMixin, GetReturnURL
                 device.vc_priority = None
                 device.save()
 
-            msg = _('Removed {device} from virtual chassis {chassis}').format(
-                device=device,
-                chassis=device.virtual_chassis
-            )
+            msg = _('Removed %(device)s from virtual chassis %(chassis)s') % {'device': device, 'chassis': device.virtual_chassis}
             messages.success(request, msg)
 
             return redirect(self.get_return_url(request, device))

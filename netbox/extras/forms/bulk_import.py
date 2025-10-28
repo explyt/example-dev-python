@@ -1,7 +1,7 @@
 import re
 
 from django import forms
-from django.contrib.postgres.forms import SimpleArrayField
+from utilities.forms.fields.array import SimpleArrayField
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils.translation import gettext_lazy as _
 
@@ -228,7 +228,7 @@ class EventRuleImportForm(NetBoxModelImportForm):
                 try:
                     webhook = Webhook.objects.get(name=action_object)
                 except Webhook.DoesNotExist:
-                    raise forms.ValidationError(_("Webhook {name} not found").format(name=action_object))
+                    raise forms.ValidationError(_("Webhook %(name)s not found") % {'name': action_object})
                 self.instance.action_object = webhook
             # Script
             elif action_type == EventRuleActionChoices.SCRIPT:
@@ -237,7 +237,7 @@ class EventRuleImportForm(NetBoxModelImportForm):
                 try:
                     script = get_module_and_script(module_name, script_name)[1]
                 except ObjectDoesNotExist:
-                    raise forms.ValidationError(_("Script {name} not found").format(name=action_object))
+                    raise forms.ValidationError(_("Script %(name)s not found") % {'name': action_object})
                 self.instance.action_object = script
                 self.instance.action_object_type = ObjectType.objects.get_for_model(script, for_concrete_model=False)
 

@@ -1,8 +1,10 @@
 import netaddr
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
-from django.contrib.postgres.indexes import GistIndex
 from django.core.exceptions import ValidationError
+# Use regular Index for SQLite
+from django.db.models import Index as GistIndex
+
 from django.db import models
 from django.db.models import F
 from django.db.models.functions import Cast
@@ -14,7 +16,7 @@ from ipam.choices import *
 from ipam.constants import *
 from ipam.fields import IPNetworkField, IPAddressField
 from ipam.lookups import Host
-from ipam.managers import IPAddressManager
+from ipam.managers import IPAddressManager, PrefixManager
 from ipam.querysets import PrefixQuerySet
 from ipam.validators import DNSValidator
 from netbox.config import get_config
@@ -272,7 +274,7 @@ class Prefix(ContactsMixin, GetAvailablePrefixesMixin, CachedScopeMixin, Primary
         editable=False
     )
 
-    objects = PrefixQuerySet.as_manager()
+    objects = PrefixManager()
 
     clone_fields = (
         'scope_type', 'scope_id', 'vrf', 'tenant', 'vlan', 'status', 'role', 'is_pool', 'mark_utilized', 'description',
@@ -282,11 +284,11 @@ class Prefix(ContactsMixin, GetAvailablePrefixesMixin, CachedScopeMixin, Primary
         ordering = (F('vrf').asc(nulls_first=True), 'prefix', 'pk')  # (vrf, prefix) may be non-unique
         verbose_name = _('prefix')
         verbose_name_plural = _('prefixes')
+        # Use plain Index for SQLite
         indexes = [
-            GistIndex(
+            models.Index(
                 fields=['prefix'],
-                name='ipam_prefix_gist_idx',
-                opclasses=['inet_ops'],
+                name='ipam_prefix_idx',
             ),
         ]
 
@@ -315,12 +317,12 @@ class Prefix(ContactsMixin, GetAvailablePrefixesMixin, CachedScopeMixin, Primary
             if (self.vrf is None and get_config().ENFORCE_GLOBAL_UNIQUE) or (self.vrf and self.vrf.enforce_unique):
                 duplicate_prefixes = self.get_duplicates()
                 if duplicate_prefixes:
-                    table = _("VRF {vrf}").format(vrf=self.vrf) if self.vrf else _("global table")
+                    table = _("VRF %(vrf)s") % {'vrf': self.vrf} if self.vrf else _("global table")
                     raise ValidationError({
-                        'prefix': _("Duplicate prefix found in {table}: {prefix}").format(
-                            table=table,
-                            prefix=duplicate_prefixes.first(),
-                        )
+                        'prefix': _("Duplicate prefix found in %(table)s: %(prefix)s") % {
+                            'table': table,
+                            'prefix': duplicate_prefixes.first(),
+                        }
                     })
 
     def save(self, *args, **kwargs):
@@ -612,10 +614,10 @@ class IPRange(ContactsMixin, PrimaryModel):
             )
             if overlapping_ranges.exists():
                 raise ValidationError(
-                    _("Defined addresses overlap with range {overlapping_range} in VRF {vrf}").format(
-                        overlapping_range=overlapping_ranges.first(),
-                        vrf=self.vrf
-                    ))
+                    _("Defined addresses overlap with range %(overlapping_range)s in VRF %(vrf)s") % {
+                        'overlapping_range': overlapping_ranges.first(),
+                        'vrf': self.vrf
+                    })
 
             # Validate maximum size
             MAX_SIZE = 2 ** 32 - 1
@@ -678,10 +680,11 @@ class IPRange(ContactsMixin, PrimaryModel):
     def get_child_ips(self):
         """
         Return all IPAddresses within this IPRange and VRF.
+        Use SQLite UDF-backed transforms to compare by host part as INET.
         """
         return IPAddress.objects.filter(
-            address__gte=self.start_address,
-            address__lte=self.end_address,
+            address__host__inet__gte=self.start_address.ip,
+            address__host__inet__lte=self.end_address.ip,
             vrf=self.vrf
         )
 
@@ -901,12 +904,12 @@ class IPAddress(ContactsMixin, PrimaryModel):
                         self.role not in IPADDRESS_ROLES_NONUNIQUE or
                         any(dip.role not in IPADDRESS_ROLES_NONUNIQUE for dip in duplicate_ips)
                 ):
-                    table = _("VRF {vrf}").format(vrf=self.vrf) if self.vrf else _("global table")
+                    table = _("VRF %(vrf)s") % {'vrf': self.vrf} if self.vrf else _("global table")
                     raise ValidationError({
-                        'address': _("Duplicate IP address found in {table}: {ipaddress}").format(
-                            table=table,
-                            ipaddress=duplicate_ips.first(),
-                        )
+                        'address': _("Duplicate IP address found in %(table)s: %(ipaddress)s") % {
+                            'table': table,
+                            'ipaddress': duplicate_ips.first(),
+                        }
                     })
 
             # Disallow the creation of IPAddresses within an IPRange with mark_populated=True

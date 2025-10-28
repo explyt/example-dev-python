@@ -1,5 +1,6 @@
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
+from django.contrib.auth import get_user_model
 
 from core.models import ObjectType
 from extras.models import Notification, NotificationGroup, Subscription
@@ -66,7 +67,12 @@ class SubscriptionSerializer(ValidatedModelSerializer):
         queryset=ObjectType.objects.with_feature('notifications'),
     )
     object = serializers.SerializerMethodField(read_only=True)
-    user = UserSerializer(nested=True)
+    # Use PrimaryKeyRelatedField for write, but serialize as nested UserSerializer for read
+    user = serializers.PrimaryKeyRelatedField(
+        queryset=get_user_model().objects.all(),
+        required=False,
+        allow_null=True
+    )
 
     class Meta:
         model = Subscription
@@ -80,3 +86,12 @@ class SubscriptionSerializer(ValidatedModelSerializer):
         serializer = get_serializer_for_model(instance.object)
         context = {'request': self.context['request']}
         return serializer(instance.object, nested=True, context=context).data
+    
+    def to_representation(self, instance):
+        # Use UserSerializer for read operations (but not in brief mode)
+        ret = super().to_representation(instance)
+        # Only add nested user representation if not in brief mode
+        if 'user' in ret and instance.user:
+            user_serializer = UserSerializer(instance.user, nested=True, context=self.context)
+            ret['user'] = user_serializer.data
+        return ret

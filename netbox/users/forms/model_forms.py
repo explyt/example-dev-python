@@ -3,7 +3,7 @@ import json
 from django import forms
 from django.conf import settings
 from django.contrib.auth import password_validation
-from django.contrib.postgres.forms import SimpleArrayField
+from utilities.forms.fields.array import SimpleArrayField
 from django.core.exceptions import FieldError
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
@@ -411,7 +411,7 @@ class ObjectPermissionForm(forms.ModelForm):
                     model.objects.filter(qs_filter_from_constraints(constraints, tokens)).exists()
                 except (FieldError, ValueError) as e:
                     raise forms.ValidationError({
-                        'constraints': _('Invalid filter for {model}: {error}').format(model=model, error=e)
+                        'constraints': _('Invalid filter for %(model)s: %(error)s') % {'model': model, 'error': e}
                     })
 
     def save(self, *args, **kwargs):

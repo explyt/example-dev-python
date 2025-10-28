@@ -40,7 +40,7 @@ class ScriptForm(forms.Form):
 
         # Annotate the current system time for reference
         now = local_now().strftime('%Y-%m-%d %H:%M:%S %Z')
-        self.fields['_schedule_at'].help_text += _(' (current time: <strong>{now}</strong>)').format(now=now)
+        self.fields['_schedule_at'].help_text += _(' (current time: <strong>%(now)s</strong>)') % {'now': now}
 
         # Remove scheduling fields if scheduling is disabled
         if not scheduling_enabled:

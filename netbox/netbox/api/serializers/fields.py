@@ -37,9 +37,7 @@ class BaseNetBoxHyperlinkedIdentityField(serializers.HyperlinkedIdentityField):
         return self.reverse(view_name, kwargs=kwargs, request=request, format=format)
 
     def get_view_name(self, model):
-        raise NotImplementedError(_('{class_name} must implement get_view_name()').format(
-            class_name=self.__class__.__name__
-        ))
+        raise NotImplementedError(_('%(class_name)s must implement get_view_name()') % {'class_name': self.__class__.__name__})
 
 
 class NetBoxAPIHyperlinkedIdentityField(BaseNetBoxHyperlinkedIdentityField):

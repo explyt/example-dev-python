@@ -55,7 +55,7 @@ class Contact(PrimaryModel):
     name = models.CharField(
         verbose_name=_('name'),
         max_length=100,
-        db_collation="natural_sort"
+        # db_collation omitted under SQLite: natural_sort
     )
     title = models.CharField(
         verbose_name=_('title'),
@@ -152,7 +152,7 @@ class ContactAssignment(CustomFieldsMixin, ExportTemplatesMixin, TagsMixin, Chan
         # Validate the assigned object type
         if not has_feature(self.object_type, 'contacts'):
             raise ValidationError(
-                _("Contacts cannot be assigned to this object type ({type}).").format(type=self.object_type)
+                _("Contacts cannot be assigned to this object type (%(type)s).") % {'type': self.object_type}
             )
 
     def to_objectchange(self, action):
