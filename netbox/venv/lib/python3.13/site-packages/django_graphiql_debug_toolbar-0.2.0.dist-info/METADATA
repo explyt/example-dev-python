@@ -1,0 +1,88 @@
+Metadata-Version: 2.1
+Name: django-graphiql-debug-toolbar
+Version: 0.2.0
+Summary: Django Debug Toolbar for GraphiQL IDE.
+Home-page: https://github.com/flavors/django-graphiql-debug-toolbar
+License: MIT
+Keywords: django,graphql,graphiql,debug
+Author: mongkok
+Author-email: dani@domake.io
+Requires-Python: >=3.6,<4.0
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Web Environment
+Classifier: Framework :: Django
+Classifier: Framework :: Django :: 2.2
+Classifier: Framework :: Django :: 3.0
+Classifier: Framework :: Django :: 3.1
+Classifier: Framework :: Django :: 3.2
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Topic :: Internet
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Internet :: WWW/HTTP :: HTTP Servers
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Debuggers
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Utilities
+Requires-Dist: Django (>=2.2)
+Requires-Dist: django-debug-toolbar (>=3.1)
+Requires-Dist: graphene-django (>=2.0.0)
+Project-URL: Repository, https://github.com/flavors/django-graphiql-debug-toolbar
+Description-Content-Type: text/markdown
+
+# Django GraphiQL Debug Toolbar
+
+[![Tests](https://github.com/flavors/django-graphiql-debug-toolbar/actions/workflows/test-suite.yml/badge.svg)](https://github.com/flavors/django-graphiql-debug-toolbar/actions)
+[![Coverage](https://img.shields.io/codecov/c/github/flavors/django-graphiql-debug-toolbar?color=%2334D058)](https://codecov.io/gh/flavors/django-graphiql-debug-toolbar)
+[![Codacy](https://app.codacy.com/project/badge/Grade/354f70cdefda40938c397d8651a2a06c)](https://www.codacy.com/gh/flavors/django-graphiql-debug-toolbar/dashboard)
+[![Package version](https://img.shields.io/pypi/v/django-graphiql-debug-toolbar.svg)](https://pypi.python.org/pypi/django-graphiql-debug-toolbar)
+
+[Django Debug Toolbar](https://github.com/jazzband/django-debug-toolbar) for [GraphiQL](https://github.com/graphql/graphiql) IDE.
+
+![Graphiql Debug Toolbar](https://user-images.githubusercontent.com/5514990/36340937-1937ee68-1419-11e8-8477-40622e98c312.gif)
+
+## Dependencies
+
+*   Python ≥ 3.6
+*   Django ≥ 2.2
+
+## Installation
+
+Install last stable version from Pypi.
+
+```sh
+pip install django-graphiql-debug-toolbar
+````
+
+See the [documentation](https://django-debug-toolbar.readthedocs.io/en/stable/installation.html) for further guidance on setting *Django Debug Toolbar*.
+
+Add `graphiql_debug_toolbar` to your *INSTALLED_APPS* settings:
+
+```py
+INSTALLED_APPS = [
+    'debug_toolbar',
+    'graphiql_debug_toolbar',
+]
+```
+
+**Replace** the Django Debug Toolbar **middleware** with the GraphiQL Debug Toolbar one. 
+
+```py
+MIDDLEWARE = [
+    # 'debug_toolbar.middleware.DebugToolbarMiddleware',
+    'graphiql_debug_toolbar.middleware.DebugToolbarMiddleware',
+]
+```
+
+Credits to [@jazzband](https://jazzband.co) / [django-debug-toolbar](https://github.com/jazzband/django-debug-toolbar).
+
