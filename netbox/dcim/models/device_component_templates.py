@@ -45,7 +45,7 @@ class ComponentTemplateModel(ChangeLoggedModel, TrackingModelMixin):
         help_text=_(
             "{module} is accepted as a substitution for the module bay position when attached to a module type."
         ),
-        db_collation="natural_sort"
+        # db_collation omitted under SQLite: natural_sort
     )
     label = models.CharField(
         verbose_name=_('label'),
@@ -367,15 +367,11 @@ class PowerOutletTemplate(ModularComponentTemplateModel):
         if self.power_port:
             if self.device_type and self.power_port.device_type != self.device_type:
                 raise ValidationError(
-                    _("Parent power port ({power_port}) must belong to the same device type").format(
-                        power_port=self.power_port
-                    )
+                    _("Parent power port (%(power_port)s) must belong to the same device type") % {'power_port': self.power_port}
                 )
             if self.module_type and self.power_port.module_type != self.module_type:
                 raise ValidationError(
-                    _("Parent power port ({power_port}) must belong to the same module type").format(
-                        power_port=self.power_port
-                    )
+                    _("Parent power port (%(power_port)s) must belong to the same module type") % {'power_port': self.power_port}
                 )
 
     def instantiate(self, **kwargs):
@@ -548,6 +544,8 @@ class FrontPortTemplate(ModularComponentTemplateModel):
     component_model = FrontPort
 
     class Meta(ModularComponentTemplateModel.Meta):
+        # Ensure device_type-bound templates are returned before module_type-bound ones by default
+        ordering = ('module_type', 'device_type', 'name')
         constraints = (
             models.UniqueConstraint(
                 fields=('device_type', 'name'),
@@ -568,29 +566,39 @@ class FrontPortTemplate(ModularComponentTemplateModel):
     def clean(self):
         super().clean()
 
-        try:
-
-            # Validate rear port assignment
-            if self.rear_port.device_type != self.device_type:
-                raise ValidationError(
-                    _("Rear port ({name}) must belong to the same device type").format(name=self.rear_port)
-                )
+        # Validate rear port assignment against the correct owner type
+        # Front ports tied to a device_type must reference a rear_port of the same device_type;
+        # likewise for module_type.
+        if hasattr(self, 'rear_port'):
+            if self.device_type is not None:
+                if self.rear_port.device_type != self.device_type:
+                    raise ValidationError(
+                        {"__all__": _(
+                            "Rear port ({name}) must belong to the same device type"
+                        ).format(name=self.rear_port)}
+                    )
+            if self.module_type is not None:
+                if self.rear_port.module_type != self.module_type:
+                    raise ValidationError(
+                        {"__all__": _(
+                            "Rear port ({name}) must belong to the same module type"
+                        ).format(name=self.rear_port)}
+                    )
 
             # Validate rear port position assignment
             if self.rear_port_position > self.rear_port.positions:
                 raise ValidationError(
-                    _("Invalid rear port position ({position}); rear port {name} has only {count} positions").format(
+                    {"__all__": _(
+                        "Invalid rear port position ({position}); rear port {name} has only {count} positions"
+                    ).format(
                         position=self.rear_port_position,
                         name=self.rear_port.name,
-                        count=self.rear_port.positions
-                    )
+                        count=self.rear_port.positions,
+                    )}
                 )
 
-        except RearPortTemplate.DoesNotExist:
-            pass
-
     def instantiate(self, **kwargs):
-        if self.rear_port:
+        if hasattr(self, 'rear_port') and self.rear_port:
             rear_port_name = self.rear_port.resolve_name(kwargs.get('module'))
             rear_port = RearPort.objects.get(name=rear_port_name, **kwargs)
         else:

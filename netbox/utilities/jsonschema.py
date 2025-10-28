@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Any
 
 from django import forms
-from django.contrib.postgres.forms import SimpleArrayField
+from utilities.forms.fields.array import SimpleArrayField
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.utils.translation import gettext_lazy as _
@@ -166,4 +166,4 @@ def validate_schema(schema):
         ValidatorClass = validator_for(schema)
         ValidatorClass.check_schema(schema)
     except SchemaError as e:
-        raise ValidationError(_("Invalid JSON schema definition: {error}").format(error=e))
+        raise ValidationError(_("Invalid JSON schema definition: %(error)s") % {'error': e})

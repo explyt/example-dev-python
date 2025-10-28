@@ -119,10 +119,10 @@ class ObjectListView(BaseMultiObjectView, ActionsMixin, TableMixin):
         except Exception as e:
             messages.error(
                 request,
-                _("There was an error rendering the selected export template ({template}): {error}").format(
-                    template=template.name,
-                    error=e
-                )
+                _("There was an error rendering the selected export template (%(template)s): %(error)s") % {
+                    'template': template.name,
+                    'error': e
+                }
             )
             # Strip the `export` param and redirect user to the filtered objects list
             query_params = request.GET.copy()
@@ -860,10 +860,10 @@ class BulkRenameView(GetReturnURLMixin, BaseMultiObjectView):
 
                             messages.success(
                                 request,
-                                _("Renamed {count} {object_type}").format(
-                                    count=len(selected_objects),
-                                    object_type=self.queryset.model._meta.verbose_name_plural
-                                )
+                                _("Renamed %(count)s %(object_type)s") % {
+                                    'count': len(selected_objects),
+                                    'object_type': self.queryset.model._meta.verbose_name_plural
+                                }
                             )
                             return redirect(self.get_return_url(request))
 

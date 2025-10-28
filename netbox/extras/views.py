@@ -1078,7 +1078,7 @@ class ObjectRenderConfigView(generic.ObjectView):
             try:
                 rendered_config = config_template.render(context=context_data)
             except TemplateError as e:
-                error_message = _("An error occurred while rendering the template: {error}").format(error=e)
+                error_message = _("An error occurred while rendering the template: %(error)s") % {'error': e}
 
         return {
             'base_template': self.base_template,
@@ -1470,7 +1470,7 @@ class ScriptView(BaseScriptView):
 
         # Allow execution only if RQ worker process is running
         if not get_workers_for_queue('default'):
-            messages.error(request, _("Unable to run script: RQ worker process not running."))
+            messages.error(request, _("Unable to run script: Worker process not running."))
         elif form.is_valid():
             ScriptJob = import_string("extras.jobs.ScriptJob")
             job = ScriptJob.enqueue(

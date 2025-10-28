@@ -208,7 +208,7 @@ class Cable(PrimaryModel):
                 b_type = self.b_terminations[0]._meta.model_name
                 if b_type not in COMPATIBLE_TERMINATION_TYPES.get(a_type):
                     raise ValidationError(
-                        _("Incompatible termination types: {type_a} and {type_b}").format(type_a=a_type, type_b=b_type)
+                        _("Incompatible termination types: %(type_a)s and %(type_b)s") % {'type_a': a_type, 'type_b': b_type}
                     )
                 if a_type == b_type:
                     # can't directly use self.a_terminations here as possible they
@@ -414,9 +414,9 @@ class CableTermination(ChangeLoggedModel):
         # Validate interface type (if applicable)
         if self.termination_type.model == 'interface' and self.termination.type in NONCONNECTABLE_IFACE_TYPES:
             raise ValidationError(
-                _("Cables cannot be terminated to {type_display} interfaces").format(
-                    type_display=self.termination.get_type_display()
-                )
+                _("Cables cannot be terminated to %(type_display)s interfaces") % {
+                    'type_display': self.termination.get_type_display()
+                }
             )
 
         # A CircuitTermination attached to a ProviderNetwork cannot have a Cable
@@ -544,7 +544,19 @@ class CablePath(models.Model):
     def save(self, *args, **kwargs):
 
         # Save the flattened nodes list
-        self._nodes = list(itertools.chain(*self.path))
+        if hasattr(self, 'path') and self.path:
+            try:
+                # Ensure path is a list of lists
+                if not isinstance(self.path, list):
+                    self._nodes = []
+                else:
+                    flattened = list(itertools.chain(*self.path))
+                    # Ensure all items are strings
+                    self._nodes = [str(item) if not isinstance(item, str) else item for item in flattened]
+            except (TypeError, ValueError):
+                self._nodes = []
+        elif not hasattr(self, '_nodes') or self._nodes is None:
+            self._nodes = []
 
         super().save(*args, **kwargs)
 

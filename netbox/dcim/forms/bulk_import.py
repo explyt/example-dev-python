@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.contenttypes.models import ContentType
-from django.contrib.postgres.forms.array import SimpleArrayField
+
+from utilities.forms.fields.array import SimpleArrayField
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
@@ -1016,9 +1017,9 @@ class InterfaceImportForm(NetBoxModelImportForm):
         for vdc in self.cleaned_data['vdcs']:
             if vdc.device != self.cleaned_data['device']:
                 raise forms.ValidationError(
-                    _("VDC {vdc} is not assigned to device {device}").format(
-                        vdc=vdc, device=self.cleaned_data['device']
-                    )
+                    _("VDC %(vdc)s is not assigned to device %(device)s") % {
+                        'vdc': vdc, 'device': self.cleaned_data['device']
+                    }
                 )
         return self.cleaned_data['vdcs']
 
@@ -1236,9 +1237,9 @@ class InventoryItemImportForm(NetBoxModelImportForm):
                     cleaned_data.pop('component_type', None)
                     cleaned_data.pop('component_name', None)
                     raise forms.ValidationError(
-                        _("Component not found: {device} - {component_name}").format(
-                            device=device, component_name=component_name
-                        )
+                        _("Component not found: %(device)s - %(component_name)s") % {
+                            'device': device, 'component_name': component_name
+                        }
                     )
             else:
                 cleaned_data.pop('component_type', None)
@@ -1493,9 +1494,9 @@ class CableImportForm(NetBoxModelImportForm):
                 )
         except ObjectDoesNotExist:
             raise forms.ValidationError(
-                _("{side_upper} side termination not found: {device} {name}").format(
-                    side_upper=side.upper(), device=device, name=name
-                )
+                _("%(side_upper)s side termination not found: %(device)s %(name)s") % {
+                    'side_upper': side.upper(), 'device': device, 'name': name
+                }
             )
         setattr(self.instance, f'{side}_terminations', [termination_object])
         return termination_object

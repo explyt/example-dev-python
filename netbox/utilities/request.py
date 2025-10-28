@@ -81,7 +81,7 @@ def get_client_ip(request, additional_headers=()):
                 return IPAddress(ip)
             except AddrFormatError:
                 # We did our best
-                raise ValueError(_("Invalid IP address set for {header}: {ip}").format(header=header, ip=ip))
+                raise ValueError(_("Invalid IP address set for %(header)s: %(ip)s") % {'header': header, 'ip': ip})
 
     # Could not determine the client IP address from request headers
     return None

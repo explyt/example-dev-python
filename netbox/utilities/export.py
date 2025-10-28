@@ -15,7 +15,7 @@ class TableExport(TableExport_):
     """
     def __init__(self, *args, delimiter=None, **kwargs):
         if delimiter and delimiter not in CSV_DELIMITERS.keys():
-            raise ValueError(_("Invalid delimiter name: {name}").format(name=delimiter))
+            raise ValueError(_("Invalid delimiter name: %(name)s") % {'name': delimiter})
         self.delimiter = delimiter or 'comma'
         super().__init__(*args, **kwargs)
 

@@ -157,10 +157,10 @@ def get_related_object_by_attrs(queryset, attrs):
             return queryset.get(**params)
         except ObjectDoesNotExist:
             raise ValidationError(
-                _("Related object not found using the provided attributes: {params}").format(params=params))
+                _("Related object not found using the provided attributes: %(params)s") % {'params': params})
         except MultipleObjectsReturned:
             raise ValidationError(
-                _("Multiple objects match the provided attributes: {params}").format(params=params)
+                _("Multiple objects match the provided attributes: %(params)s") % {'params': params}
             )
         except FieldError as e:
             raise ValidationError(e)
@@ -181,4 +181,4 @@ def get_related_object_by_attrs(queryset, attrs):
     try:
         return queryset.get(pk=pk)
     except ObjectDoesNotExist:
-        raise ValidationError(_("Related object not found using the provided numeric ID: {id}").format(id=pk))
+        raise ValidationError(_("Related object not found using the provided numeric ID: %(id)s") % {'id': pk})

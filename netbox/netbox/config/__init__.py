@@ -64,10 +64,10 @@ class Config:
         if item in self.defaults:
             return self.defaults[item]
 
-        raise AttributeError(_("Invalid configuration parameter: {item}").format(item=item))
+        raise AttributeError(_("Invalid configuration parameter: %(item)s") % {'item': item})
 
     def _populate_from_cache(self):
-        """Populate config data from Redis cache"""
+        """Populate config data from cache."""
         self.config = cache.get('config') or {}
         self.version = cache.get('config_version')
         if self.config:

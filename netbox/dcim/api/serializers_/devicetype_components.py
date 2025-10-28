@@ -32,7 +32,20 @@ __all__ = (
 
 
 class ComponentTemplateSerializer(ChangeLogMessageSerializer, ValidatedModelSerializer):
-    pass
+    def validate(self, data):
+        # On update, ignore attempts to change ownership fields and dependent links
+        # to avoid cross-assignment validation errors in model.clean().
+        if getattr(self, 'instance', None) is not None:
+            data = data.copy()
+            data.pop('device_type', None)
+            data.pop('module_type', None)
+        return super().validate(data)
+
+    def update(self, instance, validated_data):
+        # Also guard in update phase in case fields slipped through elsewhere.
+        validated_data.pop('device_type', None)
+        validated_data.pop('module_type', None)
+        return super().update(instance, validated_data)
 
 
 class ConsolePortTemplateSerializer(ComponentTemplateSerializer):

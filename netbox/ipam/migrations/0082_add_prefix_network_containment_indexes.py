@@ -1,8 +1,9 @@
-from django.contrib.postgres.indexes import GistIndex
-from django.db import migrations
+from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
+    atomic = False
+
 
     dependencies = [
         ('contenttypes', '0002_remove_content_type_name'),
@@ -15,6 +16,6 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AddIndex(
             model_name='prefix',
-            index=GistIndex(fields=['prefix'], name='ipam_prefix_gist_idx', opclasses=['inet_ops']),
+            index=models.Index(fields=['prefix'], name='ipam_prefix_idx'),
         ),
     ]

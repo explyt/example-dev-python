@@ -1,35 +1,67 @@
-from django.contrib.postgres.fields import ArrayField
-from django.contrib.postgres.fields.ranges import RangeField
 from django.db.models import CharField, JSONField, Lookup
 from django.db.models.fields.json import KeyTextTransform
+from django.db import connection
 
 from .fields import CachedValueField
+
+
+class JSONContains(Lookup):
+    """
+    Emulate JSONField __contains on SQLite using JSON1.
+    Supported cases:
+      - dict RHS: all key/value pairs must be present in JSON object
+      - list/tuple RHS: all elements must be present in JSON array (AND semantics)
+      - scalar RHS: element must be present in JSON array (EXISTS)
+    Nested structures are not supported.
+    """
+    lookup_name = 'contains'
+
+    def as_sql(self, compiler, connection):
+        lhs_sql, lhs_params = compiler.compile(self.lhs)
+        rhs_obj = self.rhs
+        params = list(lhs_params)
+
+        if isinstance(rhs_obj, dict):
+            conditions = []
+            for k, v in rhs_obj.items():
+                conditions.append(f"json_extract({lhs_sql}, '$.{k}') = ?")
+                params.append(v)
+            sql = ' AND '.join(conditions) if conditions else '1'
+            return sql, params
+
+        # Normalize list/tuple -> list
+        if isinstance(rhs_obj, (list, tuple)):
+            elements = list(rhs_obj)
+            conditions = []
+            for _ in elements:
+                conditions.append(f"EXISTS (SELECT 1 FROM json_each({lhs_sql}) AS e WHERE e.value = ?)")
+            params.extend(elements)
+            sql = ' AND '.join(conditions) if conditions else '1'
+            return sql, params
+
+        # Scalar: check membership in array
+        conditions = [f"EXISTS (SELECT 1 FROM json_each({lhs_sql}) AS e WHERE e.value = ?)"]
+        params.append(rhs_obj)
+        return ' AND '.join(conditions), params
 
 
 class RangeContains(Lookup):
     """
     Filter ArrayField(RangeField) columns where ANY element-range contains the scalar RHS.
 
-    Usage (ORM):
-        Model.objects.filter(<range_array_field>__range_contains=<scalar>)
+    SQLite implementation expects JSON array of objects with shape
+    {"lower": int, "upper": int, "bounds": "[)"|"[]"|"(]"|"()"} stored in a JSONField.
 
-    Works with int4range[], int8range[], daterange[], tstzrange[], etc.
+    Usage (ORM):
+        Model.objects.filter(<json_range_array_field>__range_contains=<scalar>)
     """
 
     lookup_name = 'range_contains'
 
     def as_sql(self, compiler, connection):
-        # Compile LHS (the array-of-ranges column/expression) and RHS (scalar)
-        lhs, lhs_params = self.process_lhs(compiler, connection)
-        rhs, rhs_params = self.process_rhs(compiler, connection)
-
-        # Guard: only allow ArrayField whose base_field is a PostgreSQL RangeField
-        field = getattr(self.lhs, 'output_field', None)
-        if not (isinstance(field, ArrayField) and isinstance(field.base_field, RangeField)):
-            raise TypeError('range_contains is only valid for ArrayField(RangeField) columns')
-
-        # Range-contains-element using EXISTS + UNNEST keeps the range on the LHS: r @> value
-        sql = f"EXISTS (SELECT 1 FROM unnest({lhs}) AS r WHERE r @> {rhs})"
+        lhs_sql, lhs_params = self.process_lhs(compiler, connection)
+        rhs_sql, rhs_params = self.process_rhs(compiler, connection)
+        sql = f"RANGE_ARRAY_CONTAINS({lhs_sql}, {rhs_sql})"
         params = lhs_params + rhs_params
         return sql, params
 
@@ -75,7 +107,7 @@ class JSONEmpty(Lookup):
 
 class NetHost(Lookup):
     """
-    Similar to ipam.lookups.NetHost, but casts the field to INET.
+    SQLite-safe: compare only host portions using HOST() UDF (see utilities/sqlite_collations.py).
     """
     lookup_name = 'net_host'
 
@@ -83,24 +115,23 @@ class NetHost(Lookup):
         lhs, lhs_params = self.process_lhs(qn, connection)
         rhs, rhs_params = self.process_rhs(qn, connection)
         params = lhs_params + rhs_params
-        return 'HOST(CAST(%s AS INET)) = HOST(%s)' % (lhs, rhs), params
+        return 'HOST(%s) = HOST(%s)' % (lhs, rhs), params
 
 
 class NetContainsOrEquals(Lookup):
-    """
-    Similar to ipam.lookups.NetContainsOrEquals, but casts the field to INET.
-    """
+    """Use INET_CONTAINS_OR_EQUALS() UDF."""
     lookup_name = 'net_contains_or_equals'
 
     def as_sql(self, qn, connection):
         lhs, lhs_params = self.process_lhs(qn, connection)
         rhs, rhs_params = self.process_rhs(qn, connection)
         params = lhs_params + rhs_params
-        return 'CAST(%s AS INET) >>= %s' % (lhs, rhs), params
+        return 'INET_CONTAINS_OR_EQUALS(%s, %s)' % (lhs, rhs), params
 
 
-ArrayField.register_lookup(RangeContains)
 CharField.register_lookup(Empty)
 JSONField.register_lookup(JSONEmpty)
+JSONField.register_lookup(RangeContains)
+JSONField.register_lookup(JSONContains)
 CachedValueField.register_lookup(NetHost)
 CachedValueField.register_lookup(NetContainsOrEquals)

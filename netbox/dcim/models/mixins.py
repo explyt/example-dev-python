@@ -88,7 +88,7 @@ class CachedScopeMixin(models.Model):
         if self.scope_type and not (self.scope or self.scope_id):
             scope_type = self.scope_type.model_class()
             raise ValidationError(
-                _("Please select a {scope_type}.").format(scope_type=scope_type._meta.model_name)
+                _("Please select a %(scope_type)s.") % {'scope_type': scope_type._meta.model_name}
             )
         super().clean()
 

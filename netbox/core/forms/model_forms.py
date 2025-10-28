@@ -216,7 +216,7 @@ class ConfigRevisionForm(forms.ModelForm, metaclass=ConfigFormMetaclass):
             help_text = self.fields[param.name].help_text
             if help_text:
                 help_text += '<br />'  # Line break
-            help_text += _('Current value: <strong>{value}</strong>').format(value=value or '&mdash;')
+            help_text += _('Current value: <strong>%(value)s</strong>') % {'value': value or '&mdash;'}
             if value == param.default:
                 help_text += _(' (default)')
             self.fields[param.name].help_text = help_text

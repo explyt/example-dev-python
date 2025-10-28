@@ -32,9 +32,6 @@ logger = logging.getLogger('netbox.core.data')
 
 
 class DataSource(JobsMixin, PrimaryModel):
-    """
-    A remote source, such as a git repository, from which DataFiles are synchronized.
-    """
     name = models.CharField(
         verbose_name=_('name'),
         max_length=100,
@@ -119,13 +116,11 @@ class DataSource(JobsMixin, PrimaryModel):
     def clean(self):
         super().clean()
 
-        # Validate data backend type
         if self.type and self.type not in registry['data_backends']:
             raise ValidationError({
                 'type': _("Unknown backend type: {type}".format(type=self.type))
             })
 
-        # Ensure URL scheme matches selected type
         if self.backend_class.is_local and self.url_scheme not in ('file', ''):
             raise ValidationError({
                 'source_url': "URLs for local sources must start with file:// (or specify no scheme)"
@@ -134,17 +129,15 @@ class DataSource(JobsMixin, PrimaryModel):
     def to_objectchange(self, action):
         objectchange = super().to_objectchange(action)
 
-        # Censor any backend parameters marked as sensitive in the serialized data
         pre_change_params = {}
         post_change_params = {}
         if objectchange.prechange_data:
-            pre_change_params = objectchange.prechange_data.get('parameters') or {}  # parameters may be None
+            pre_change_params = objectchange.prechange_data.get('parameters') or {}
         if objectchange.postchange_data:
             post_change_params = objectchange.postchange_data.get('parameters') or {}
         for param in self.backend_class.sensitive_parameters:
             if post_change_params.get(param):
                 if post_change_params[param] != pre_change_params.get(param):
-                    # Set the "changed" token if the parameter's value has been modified
                     post_change_params[param] = CENSOR_TOKEN_CHANGED
                 else:
                     post_change_params[param] = CENSOR_TOKEN
@@ -158,21 +151,16 @@ class DataSource(JobsMixin, PrimaryModel):
         return self.backend_class(self.source_url, **backend_params)
 
     def sync(self):
-        """
-        Create/update/delete child DataFiles as necessary to synchronize with the remote source.
-        """
         from core.signals import post_sync, pre_sync
 
         if self.status == DataSourceStatusChoices.SYNCING:
             raise SyncError(_("Cannot initiate sync; syncing already in progress."))
 
-        # Emit the pre_sync signal
         pre_sync.send(sender=self.__class__, instance=self)
 
         self.status = DataSourceStatusChoices.SYNCING
         DataSource.objects.filter(pk=self.pk).update(status=self.status)
 
-        # Replicate source data locally
         try:
             backend = self.get_backend()
         except ModuleNotFoundError as e:
@@ -186,7 +174,6 @@ class DataSource(JobsMixin, PrimaryModel):
             known_paths = {df.path for df in data_files}
             logger.debug(f'Starting with {len(known_paths)} known files')
 
-            # Check for any updated/deleted files
             updated_files = []
             deleted_file_ids = []
             for datafile in data_files:
@@ -195,22 +182,17 @@ class DataSource(JobsMixin, PrimaryModel):
                     if datafile.refresh_from_disk(source_root=local_path):
                         updated_files.append(datafile)
                 except FileNotFoundError:
-                    # File no longer exists
                     deleted_file_ids.append(datafile.pk)
                     continue
 
-            # Bulk update modified files
             updated_count = DataFile.objects.bulk_update(updated_files, ('last_updated', 'size', 'hash', 'data'))
             logger.debug(f"Updated {updated_count} files")
 
-            # Bulk delete deleted files
             deleted_count, __ = DataFile.objects.filter(pk__in=deleted_file_ids).delete()
             logger.debug(f"Deleted {deleted_count} files")
 
-            # Walk the local replication to find new files
             new_paths = self._walk(local_path) - known_paths
 
-            # Bulk create new files
             new_datafiles = []
             for path in new_paths:
                 datafile = DataFile(source=self, path=path)
@@ -220,24 +202,19 @@ class DataSource(JobsMixin, PrimaryModel):
             created_count = len(DataFile.objects.bulk_create(new_datafiles, batch_size=100))
             logger.debug(f"Created {created_count} data files")
 
-        # Update status & last_synced time
         self.status = DataSourceStatusChoices.COMPLETED
         self.last_synced = timezone.now()
         DataSource.objects.filter(pk=self.pk).update(status=self.status, last_synced=self.last_synced)
 
-        # Emit the post_sync signal
         post_sync.send(sender=self.__class__, instance=self)
     sync.alters_data = True
 
     def _walk(self, root):
-        """
-        Return a set of all non-excluded files within the root path.
-        """
         logger.debug(f"Walking {root}...")
         paths = set()
 
         for path, dir_names, file_names in os.walk(root):
-            path = path.split(root)[1].lstrip('/')  # Strip root path
+            path = path.split(root)[1].lstrip('/')
             if path.startswith('.'):
                 continue
             for file_name in file_names:
@@ -248,10 +225,6 @@ class DataSource(JobsMixin, PrimaryModel):
         return paths
 
     def _ignore(self, filename):
-        """
-        Returns a boolean indicating whether the file should be ignored per the DataSource's configured
-        ignore rules.
-        """
         if filename.startswith('.'):
             return True
         for rule in self.ignore_rules.splitlines():
@@ -261,10 +234,6 @@ class DataSource(JobsMixin, PrimaryModel):
 
 
 class DataFile(models.Model):
-    """
-    The database representation of a remote file fetched from a remote DataSource. DataFile instances should be created,
-    updated, or deleted only by calling DataSource.sync().
-    """
     created = models.DateTimeField(
         verbose_name=_('created'),
         auto_now_add=True
@@ -329,22 +298,13 @@ class DataFile(models.Model):
             return None
 
     def get_data(self):
-        """
-        Attempt to read the file data as JSON/YAML and return a native Python object.
-        """
-        # TODO: Something more robust
         return yaml.safe_load(self.data_as_string)
 
     def refresh_from_disk(self, source_root):
-        """
-        Update instance attributes from the file on disk. Returns True if any attribute
-        has changed.
-        """
         file_path = os.path.join(source_root, self.path)
         with open(file_path, 'rb') as f:
             file_hash = hashlib.sha256(f.read()).hexdigest()
 
-        # Update instance file attributes & data
         if is_modified := file_hash != self.hash:
             self.last_updated = timezone.now()
             self.size = os.path.getsize(file_path)
@@ -356,9 +316,6 @@ class DataFile(models.Model):
 
 
 class AutoSyncRecord(models.Model):
-    """
-    Maps a DataFile to a synced object for efficient automatic updating.
-    """
     datafile = models.ForeignKey(
         to=DataFile,
         on_delete=models.CASCADE,

@@ -435,7 +435,7 @@ class CircuitSwapTerminations(generic.ObjectEditView):
                 circuit.termination_z = None
                 circuit.save()
 
-            messages.success(request, _("Swapped terminations for circuit {circuit}.").format(circuit=circuit))
+            messages.success(request, _("Swapped terminations for circuit %(circuit)s.") % {'circuit': circuit})
             return redirect('circuits:circuit', pk=circuit.pk)
 
         return render(request, 'circuits/circuit_terminations_swap.html', {

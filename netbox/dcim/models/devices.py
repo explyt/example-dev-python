@@ -525,7 +525,7 @@ class Device(
         max_length=64,
         blank=True,
         null=True,
-        db_collation="natural_sort"
+        # db_collation omitted under SQLite: natural_sort
     )
     serial = models.CharField(
         max_length=50,
@@ -718,7 +718,8 @@ class Device(
     )
 
     class Meta:
-        ordering = ('name', 'pk')  # Name may be null
+        # Ensure consistent NULLS LAST semantics across backends for name ordering
+        ordering = (models.F('name').asc(nulls_last=True), 'pk')  # Name may be null
         constraints = (
             models.UniqueConstraint(
                 Lower('name'), 'site', 'tenant',
@@ -759,7 +760,7 @@ class Device(
         # Validate site/location/rack combination
         if self.rack and self.site != self.rack.site:
             raise ValidationError({
-                'rack': _("Rack {rack} does not belong to site {site}.").format(rack=self.rack, site=self.site),
+                'rack': _("Rack %(rack)s does not belong to site %(site)s.") % {'rack': self.rack, 'site': self.site},
             })
         if self.location and self.site != self.location.site:
             raise ValidationError({
@@ -846,7 +847,7 @@ class Device(
         if self.primary_ip4:
             if self.primary_ip4.family != 4:
                 raise ValidationError({
-                    'primary_ip4': _("{ip} is not an IPv4 address.").format(ip=self.primary_ip4)
+                    'primary_ip4': _("%(ip)s is not an IPv4 address.") % {'ip': self.primary_ip4}
                 })
             if self.primary_ip4.assigned_object in vc_interfaces:
                 pass
@@ -864,7 +865,7 @@ class Device(
         if self.primary_ip6:
             if self.primary_ip6.family != 6:
                 raise ValidationError({
-                    'primary_ip6': _("{ip} is not an IPv6 address.").format(ip=self.primary_ip6)
+                    'primary_ip6': _("%(ip)s is not an IPv6 address.") % {'ip': self.primary_ip6}
                 })
             if self.primary_ip6.assigned_object in vc_interfaces:
                 pass
@@ -905,16 +906,12 @@ class Device(
         # A Device can only be assigned to a Cluster in the same Site (or no Site)
         if self.cluster and self.cluster._site is not None and self.cluster._site != self.site:
             raise ValidationError({
-                'cluster': _("The assigned cluster belongs to a different site ({site})").format(
-                    site=self.cluster._site
-                )
+                'cluster': _("The assigned cluster belongs to a different site (%(site)s)") % {'site': self.cluster._site}
             })
 
         if self.cluster and self.cluster._location is not None and self.cluster._location != self.location:
             raise ValidationError({
-                'cluster': _("The assigned cluster belongs to a different location ({location})").format(
-                    site=self.cluster._location
-                )
+                'cluster': _("The assigned cluster belongs to a different location (%(location)s)") % {'site': self.cluster._location}
             })
 
         # Validate virtual chassis assignment
@@ -1119,7 +1116,7 @@ class VirtualChassis(PrimaryModel):
     name = models.CharField(
         verbose_name=_('name'),
         max_length=64,
-        db_collation="natural_sort"
+        # db_collation omitted under SQLite: natural_sort
     )
     domain = models.CharField(
         verbose_name=_('domain'),
@@ -1148,9 +1145,7 @@ class VirtualChassis(PrimaryModel):
         # VirtualChassis.)
         if not self._state.adding and self.master and self.master not in self.members.all():
             raise ValidationError({
-                'master': _("The selected master ({master}) is not assigned to this virtual chassis.").format(
-                    master=self.master
-                )
+                'master': _("The selected master (%(master)s) is not assigned to this virtual chassis.") % {'master': self.master}
             })
 
     def delete(self, *args, **kwargs):
@@ -1182,7 +1177,7 @@ class VirtualDeviceContext(PrimaryModel):
     name = models.CharField(
         verbose_name=_('name'),
         max_length=64,
-        db_collation="natural_sort"
+        # db_collation omitted under SQLite: natural_sort
     )
     status = models.CharField(
         verbose_name=_('status'),

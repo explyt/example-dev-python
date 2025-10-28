@@ -15,10 +15,10 @@
   </p>
   <p>
     <i class="mdi mdi-alert"></i>
-    <strong>{% trans "Unsupported PostgreSQL version" %}.</strong>
+    <strong>{% trans "Unsupported database version" %}.</strong>
     {% blocktrans trimmed %}
-      Ensure that PostgreSQL version 14 or later is in use. You can check this by connecting to the database using
-      NetBox's credentials and issuing a query for <code>SELECT VERSION()</code>.
+      Ensure that the database version is compatible with NetBox. You can check this by connecting to the database using
+      NetBox's credentials and issuing a query for <code>SELECT VERSION()</code> or <code>SELECT sqlite_version()</code>.
     {% endblocktrans %}
   </p>
 {% endblock message %}

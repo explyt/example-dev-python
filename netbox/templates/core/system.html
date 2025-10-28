@@ -67,7 +67,7 @@
               <td>{{ stats.django_version }}</td>
             </tr>
             <tr>
-              <th scope="row">{% trans "PostgreSQL version" %}</th>
+              <th scope="row">{% trans "Database version" %}</th>
               <td>{{ stats.postgresql_version }}</td>
             </tr>
             <tr>
@@ -85,7 +85,7 @@
               </td>
             </tr>
             <tr>
-              <th scope="row">{% trans "RQ workers" %}</th>
+              <th scope="row">{% trans "Background workers" %}</th>
               <td>
                 <a href="{% url 'core:background_queue_list' %}">{{ stats.rq_worker_count }}</a>
                 ({% trans "default queue" %})
