@@ -209,8 +209,14 @@ PARAMS = (
     ConfigParam(
         name='MAPS_URL',
         label=_('Maps URL'),
-        default='https://maps.google.com/?q=',
+        default='https://www.google.com/maps/search/?api=1&query=',
         description=_("Base URL for mapping geographic locations")
+    ),
+    ConfigParam(
+        name='NEWSFEED_API_VERSION',
+        label=_('Newsfeed API Version'),
+        default='v1',
+        description=_("Version of the Newsfeed API to use (v1 or v2)")
     ),
 
 )
