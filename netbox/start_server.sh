@@ -1,20 +1,22 @@
 #!/bin/bash
 
 # NetBox Server Startup Script
-# This script prepares and starts the NetBox server with SQLite and diskcache
+# Requires: Python 3.8+ and virtual environment setup
 
 set -e  # Exit on error
 
 echo "=== NetBox Server Startup ==="
 echo ""
 
-# Activate virtual environment
+# Check if virtual environment exists
+if [ ! -d ".venv" ]; then
+    echo "ERROR: Virtual environment not found!"
+    echo "Please run: ./setup.sh"
+    exit 1
+fi
+
 echo "1. Activating virtual environment..."
 source .venv/bin/activate
-
-# Remove old database if exists (optional, comment out if you want to keep data)
-# echo "2. Removing old database..."
-# rm -f netbox.db
 
 # Run migrations
 echo "2. Running database migrations..."

@@ -1,8 +1,49 @@
-# Подготовка к работе
-1. Перейдите в корень проекта `cd netbox`
-2. Активируйте виртуальную среду `source .venv/bin/activate`
+# NetBox
 
-# Запуск приложения
-1. Выполните шаги из раздела *Подготовка к работе*
-2. Для `mac/linux` выполните `bash start_server.sh`
-3. Для `windows` выполните `.\start_server.ps1`
+Django-based network infrastructure management system.
+
+## Требования
+
+- Python 3.8 или выше
+- pip
+- Git
+
+## Быстрый старт
+
+### Linux / macOS
+
+```bash
+# 1. Клонировать репозиторий
+git clone <repository>
+cd netbox
+
+# 2. Запустить setup (создаст venv и установит зависимости)
+./setup.sh
+
+# 3. Запустить сервер
+./start_server.sh
+```
+
+### Windows
+
+```powershell
+# 1. Клонировать репозиторий
+git clone <repository>
+cd netbox
+
+# 2. Запустить setup (создаст venv и установит зависимости)
+.\setup.ps1
+
+# 3. Запустить сервер
+.\start_server.ps1
+```
+
+## После запуска
+
+Сервер будет доступен по адресу: **http://127.0.0.1:8000**
+
+**Учетные данные:**
+- Username: `admin`
+- Password: `admin`
+
+**API Token** будет выведен в консоли при запуске.
