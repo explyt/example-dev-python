@@ -209,7 +209,7 @@ PARAMS = (
     ConfigParam(
         name='MAPS_URL',
         label=_('Maps URL'),
-        default='https://maps.google.com/?q=',
+        default='https://www.google.com/maps/search/?api=1&query=',
         description=_("Base URL for mapping geographic locations")
     ),
 

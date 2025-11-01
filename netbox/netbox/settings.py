@@ -849,3 +849,14 @@ def patched_queries_logged(self):
 
 # Replace the property
 DatabaseWrapper.queries_logged = property(patched_queries_logged)
+
+# Newsfeed API version configuration
+NEWSFEED_API_VERSION = getattr(configuration, 'NEWSFEED_API_VERSION', 'v1')
+NEWSFEED_BASE_URL = getattr(configuration, 'NEWSFEED_BASE_URL', 'https://api.netbox.oss.netboxlabs.com/newsfeed/')
+
+if NEWSFEED_API_VERSION == 'v1':
+    NEWSFEED_URL = 'https://api.netbox.oss.netboxlabs.com/v1/newsfeed/'
+elif NEWSFEED_API_VERSION == 'v2':
+    NEWSFEED_URL = f'{NEWSFEED_BASE_URL}?version=2'
+else:
+    NEWSFEED_URL = NEWSFEED_BASE_URL
