@@ -8,11 +8,15 @@ from __future__ import annotations
 
 import uuid
 import os
+import logging
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional
 from pathlib import Path
 
 import diskcache
+
+# Setup logger
+logger = logging.getLogger(__name__)
 
 # Global shared diskcache instances per process
 _CACHE_DIR = Path(os.environ.get('DISKCACHE_DIR', '/tmp/netbox_cache'))
@@ -78,6 +82,8 @@ class Queue:
         
         self._jobs[job.id] = job
         self._deque.append(job.id)
+        
+        logger.info(f"Job {job.id} enqueued to queue {self.name}: {func}")
         
         return job
 
@@ -158,15 +164,23 @@ class Worker:
         if not kwargs.get('burst', False):
             return
         
+        logger.info(f"Worker {self.name} starting to process jobs")
+        
         for queue in self.queues:
+            logger.info(f"Processing queue: {queue.name}")
             for job in list(queue.jobs):
                 try:
+                    logger.info(f"Executing job {job.id}: {job.func}")
                     if callable(job.func):
                         job.result = job.func(*job.args, **job.kwargs)
                     job.set_status(JobStatus.FINISHED)
+                    logger.info(f"Job {job.id} completed successfully")
                 except Exception as e:
+                    logger.error(f"Job {job.id} failed with error: {e}", exc_info=True)
                     job.exc_info = str(e)
                     job.set_status(JobStatus.FAILED)
+        
+        logger.info(f"Worker {self.name} finished processing jobs")
 
     def register_birth(self) -> None:
         self.birth_date = datetime.now()
