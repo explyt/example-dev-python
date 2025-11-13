@@ -36,6 +36,18 @@ git clone <repository>
 .\start_server.ps1
 ```
 
+### Окуржение
+Не забудьте указать вашему редактору созданное виртуальное окружение:
+1. В PyCharm:
+    - Shift-Shift, `Interpreter` 
+    - Нажмите `Add Interpreter`, затем `Add Local Interpreter`
+    - В открытом окне поставьте чекбокс `Select existing`
+    - Выберите тип `Python`
+    - В `Python path` укажите путь до созданного окружения `.../example-dev-python/.venv/bin/python`
+2. В VS Code + Python-расширение:
+    - Command-Shift-P (для macOS) или Ctrl+P (на Windows и Linux), `>Python: Select Interpreter`
+    - Выберите созданное окружение `./.venv/bin/python`
+
 ## После запуска
 
 Сервер будет доступен по адресу: **http://127.0.0.1:8000**
