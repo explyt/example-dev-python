@@ -15,7 +15,6 @@ Django-based network infrastructure management system.
 ```bash
 # 1. Клонировать репозиторий
 git clone <repository>
-cd netbox
 
 # 2. Запустить setup (создаст venv и установит зависимости)
 ./setup.sh
@@ -29,7 +28,6 @@ cd netbox
 ```powershell
 # 1. Клонировать репозиторий
 git clone <repository>
-cd netbox
 
 # 2. Запустить setup (создаст venv и установит зависимости)
 .\setup.ps1
