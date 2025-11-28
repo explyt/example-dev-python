@@ -124,6 +124,7 @@ class EventRuleTest(APITestCase):
             ]
         }
         url = reverse('dcim-api:site-list')
+        self.add_permissions('dcim.add_site')
         response = self.client.post(url, data, format='json', **self.header)
         self.assertHttpStatus(response, status.HTTP_201_CREATED)
         self.assertEqual(Site.objects.count(), 1)
