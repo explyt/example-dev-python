@@ -744,6 +744,25 @@ STRAWBERRY_DJANGO = {
 
 PLUGIN_CATALOG_URL = 'https://api.netbox.oss.netboxlabs.com/v1/plugins'
 
+#
+# Newsfeed API Configuration
+#
+
+# Configurable Newsfeed API version (default: "v1")
+NEWSFEED_API_VERSION = getattr(configuration, 'NEWSFEED_API_VERSION', 'v1')
+
+# Base URL for newsfeed API
+NEWSFEED_BASE_URL = 'https://api.netbox.oss.netboxlabs.com/newsfeed/'
+
+# Construct the final newsfeed URL based on version
+if NEWSFEED_API_VERSION == 'v1':
+    NEWSFEED_URL = 'https://api.netbox.oss.netboxlabs.com/v1/newsfeed/'
+elif NEWSFEED_API_VERSION == 'v2':
+    NEWSFEED_URL = f'{NEWSFEED_BASE_URL}?version=2'
+else:
+    # Fallback to base URL for any other version
+    NEWSFEED_URL = NEWSFEED_BASE_URL
+
 EVENTS_PIPELINE = list(EVENTS_PIPELINE)
 if 'extras.events.process_event_queue' not in EVENTS_PIPELINE:
     EVENTS_PIPELINE.insert(0, 'extras.events.process_event_queue')
